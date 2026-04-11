@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useApp, User } from "../store";
-import { Home, Eye, EyeOff } from "lucide-react";
+import { useApp } from "../store";
+import { Home, Eye, EyeOff, Loader2 } from "lucide-react";
+import { login, register, saveAuth } from "../services/auth";
+import { AxiosError } from "axios";
 
 export function Auth() {
   const [searchParams] = useSearchParams();
@@ -9,29 +11,72 @@ export function Auth() {
   const [isSignUp, setIsSignUp] = useState(true);
   const [showPw, setShowPw] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const { setUser } = useApp();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { refreshUser } = useApp();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newUser: User = {
-      id: typeParam === "landlord" ? "l1" : "current-tenant",
-      name: form.name || "Demo User",
-      email: form.email || "demo@dwllr.com",
-      phone: form.phone || "0400000000",
-      photo: "",
-      bio: "",
-      type: typeParam || "tenant",
-      onboarded: typeParam === "landlord",
-      onboardingAnswers: {},
-      livelinessVerified: typeParam === "landlord",
-      lastSuperInterestTime: null,
-    };
-    setUser(newUser);
-    if (typeParam === "tenant") {
-      navigate("/onboarding");
-    } else {
-      navigate("/landlord");
+    setError(null);
+
+    if (isSignUp && !form.name.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
+    if (!form.email.trim()) {
+      setError("Please enter your email.");
+      return;
+    }
+    if (isSignUp && !form.phone.trim()) {
+      setError("Please enter your phone number.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const role = typeParam || "tenant";
+
+      let authResponse;
+      if (isSignUp) {
+        authResponse = await register({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          password: form.password,
+          role,
+        });
+      } else {
+        authResponse = await login({
+          email: form.email.trim(),
+          password: form.password,
+        });
+      }
+
+      saveAuth(authResponse);
+      await refreshUser();
+
+      if (authResponse.role === "tenant") {
+        navigate("/onboarding");
+      } else {
+        navigate("/landlord");
+      }
+    } catch (err) {
+      const axiosErr = err as AxiosError<{ detail?: string }>;
+      const detail = axiosErr.response?.data?.detail;
+      if (detail) {
+        setError(detail);
+      } else if (axiosErr.request && !axiosErr.response) {
+        setError("Cannot reach server. Please try again later.");
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -50,6 +95,12 @@ export function Auth() {
           <p className="text-center text-muted-foreground text-[0.85rem] mb-6">
             {typeParam === "landlord" ? "Landlord account" : "Tenant account"}
           </p>
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive text-[0.85rem] px-4 py-2.5 rounded-lg mb-4">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
@@ -101,14 +152,19 @@ export function Auth() {
                 </button>
               </div>
             </div>
-            <button type="submit" className="w-full bg-primary text-primary-foreground py-3 rounded-xl hover:opacity-90 transition">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-xl hover:opacity-90 transition disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
               {isSignUp ? "Sign up" : "Log in"}
             </button>
           </form>
 
           <p className="text-center text-[0.8rem] text-muted-foreground mt-4">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-primary hover:underline">
+            <button onClick={() => { setIsSignUp(!isSignUp); setError(null); }} className="text-primary hover:underline">
               {isSignUp ? "Log in" : "Sign up"}
             </button>
           </p>

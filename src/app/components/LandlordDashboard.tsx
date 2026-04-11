@@ -4,9 +4,10 @@ import { useNavigate } from "react-router";
 import { Plus, MapPin, X, ArrowRight, Loader2, ImagePlus, Sparkles, Calendar } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import axios from "axios";
+import api from "../services/api";
+import { getSavedToken } from "../services/auth";
 
 const API_URL = import.meta.env.VITE_API_URL;
-const BEARER_TOKEN = import.meta.env.VITE_BEARER_TOKEN;
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const PREFERENCE_OPTIONS = [
@@ -98,7 +99,7 @@ export function LandlordDashboard() {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/properties/`, {
-        headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` }
+        headers: { 'Authorization': `Bearer ${getSavedToken()}` }
       });
       if (response.ok) {
         const data = await response.json();
@@ -125,9 +126,9 @@ export function LandlordDashboard() {
     setIsOptimizing(true);
     try {
       const raw = `${form.bedrooms} beds, ${form.address}, $${form.price}, ${form.description}`;
-      const response = await axios.post(`${API_URL}/properties/ai-optimize`,
+      const response = await api.post(`${API_URL}/properties/ai-optimize`,
           { raw_details: raw },
-          { headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` }}
+          { headers: { 'Authorization': `Bearer ${getSavedToken()}` }}
       );
       setForm(prev => ({ ...prev, description: response.data.description }));
       if (response.data.tags) setSelectedPrefs(response.data.tags);
@@ -143,7 +144,7 @@ export function LandlordDashboard() {
 
         const uploadRes = await fetch(`${API_URL}/storage/upload`, {
           method: "POST",
-          headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` },
+          headers: { 'Authorization': `Bearer ${getSavedToken()}` },
           body: formData
         });
 
@@ -156,7 +157,7 @@ export function LandlordDashboard() {
 
       const response = await fetch(`${API_URL}/properties/`, {
         method: "POST",
-        headers: { 'Authorization': `Bearer ${BEARER_TOKEN}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${getSavedToken()}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
           tenant_preferences: selectedPrefs,

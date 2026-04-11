@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router";
-import { AppProviderLayout } from "./components/Layout";
+import { AppProviderLayout, ProtectedRoute } from "./components/Layout";
 import { Landing } from "./components/Landing";
 import { Auth } from "./components/Auth";
 import { TenantOnboarding } from "./components/TenantOnboarding";
@@ -14,14 +14,23 @@ export const router = createBrowserRouter([
     path: "/",
     Component: AppProviderLayout,
     children: [
+      // Public routes
       { index: true, Component: Landing },
       { path: "auth", Component: Auth },
-      { path: "onboarding", Component: TenantOnboarding },
-      { path: "swipe", Component: SwipeInterface },
-      { path: "matches", Component: MatchesDashboard },
-      { path: "property/:id", Component: PropertyDetail },
-      { path: "landlord", Component: LandlordDashboard },
-      { path: "profile", Component: ProfileEdit },
+
+      // Protected routes — require authentication
+      {
+        Component: ProtectedRoute,
+        children: [
+          { path: "onboarding", Component: TenantOnboarding },
+          { path: "swipe", Component: SwipeInterface },
+          { path: "matches", Component: MatchesDashboard },
+          { path: "property/:id", Component: PropertyDetail },
+          { path: "landlord", Component: LandlordDashboard },
+          { path: "profile", Component: ProfileEdit },
+        ],
+      },
+
       { path: "*", Component: Landing },
     ],
   },

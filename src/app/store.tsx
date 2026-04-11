@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { getMe, getSavedToken, clearAuth, type UserProfile } from "./services/auth";
 
 export type UserType = "landlord" | "tenant" | null;
 
@@ -28,6 +29,23 @@ export interface User {
   onboardingAnswers: Record<string, OnboardingAnswerValue>;
   livelinessVerified: boolean;
   lastSuperInterestTime: number | null;
+}
+
+function profileToUser(profile: UserProfile): User {
+  const hasQuizResults = profile.raw_quiz_results && Object.keys(profile.raw_quiz_results).length > 0;
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    phone: profile.phone ?? "",
+    photo: profile.profile_image_url ?? "",
+    bio: profile.bio ?? "",
+    type: (profile.role as UserType) ?? "tenant",
+    onboarded: profile.role === "landlord" || !!hasQuizResults,
+    onboardingAnswers: (profile.raw_quiz_results as Record<string, OnboardingAnswerValue>) ?? {},
+    livelinessVerified: profile.role === "landlord" || !!hasQuizResults,
+    lastSuperInterestTime: null,
+  };
 }
 
 export interface Property {
@@ -66,6 +84,9 @@ interface SwipeRecord {
 interface AppState {
   user: User | null;
   setUser: (u: User | null) => void;
+  authLoading: boolean;
+  logout: () => void;
+  refreshUser: () => Promise<void>;
   properties: Property[];
   setProperties: (p: Property[]) => void;
   swipes: SwipeRecord[];
@@ -96,9 +117,30 @@ const MOCK_PROPERTIES: Property[] = [
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(!!getSavedToken());
   const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
   const [swipes, setSwipes] = useState<SwipeRecord[]>([]);
   const [superInterests, setSuperInterests] = useState<{ propertyId: string; timestamp: number }[]>([]);
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const profile = await getMe();
+      setUser(profileToUser(profile));
+    } catch {
+      clearAuth();
+      setUser(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!getSavedToken()) return;
+    refreshUser().finally(() => setAuthLoading(false));
+  }, [refreshUser]);
+
+  const logout = useCallback(() => {
+    clearAuth();
+    setUser(null);
+  }, []);
 
   const addSwipe = (s: SwipeRecord) => setSwipes((prev) => [...prev, s]);
 
@@ -153,7 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        user, setUser,
+        user, setUser, authLoading, logout, refreshUser,
         properties, setProperties,
         swipes, addSwipe,
         superInterests, addSuperInterest, withdrawInterest, unmatchFromProperty, canSuperInterest,
