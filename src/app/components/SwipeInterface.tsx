@@ -281,7 +281,7 @@ const FrontCard = forwardRef<FrontCardHandle, {
 
   const [currentTenants, maxTenants] = property.occupancy.split("/").map(Number);
   const minPrice = (property.price / (maxTenants || 1)).toFixed(0);
-  const currentPrice = (property.price / Math.max(currentTenants, 1)).toFixed(0);
+  const currentPrice = (property.price - (property.price * (currentTenants / maxTenants))).toFixed(0);
   const matchPct = Math.round(property.match_score);
   const images = property.images?.length ? property.images : [];
 
@@ -391,7 +391,7 @@ const FrontCard = forwardRef<FrontCardHandle, {
               </div>
               {currentTenants > 0 && (
                 <p className="text-primary text-[0.85rem] font-black mt-1 uppercase tracking-widest">
-                  Current Match: ${currentPrice}pw
+                  To move in now: ${currentPrice}pw
                 </p>
               )}
             </div>
