@@ -3,14 +3,12 @@ import { useParams, useNavigate } from "react-router";
 import { useApp } from "../store";
 import {
   ArrowLeft, X, Loader2, ImagePlus, Sparkles,
-  Calendar, MapPin, Save, Trash2
+  Calendar, MapPin, Save, Trash2, AlertCircle
 } from "lucide-react";
-import axios from "axios";
 import api from "../services/api";
 import { getSavedToken } from "../services/auth";
 
 const API_URL = import.meta.env.VITE_API_URL;
-const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const PREFERENCE_OPTIONS = [
   "Tidy", "Non-smoker", "Quiet after 10pm", "Pet-friendly",
@@ -21,13 +19,13 @@ const PREFERENCE_OPTIONS = [
 export function PropertyEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { setProperties } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Form States
   const [form, setForm] = useState({
     address: "",
     bedrooms: 1,
@@ -42,23 +40,11 @@ export function PropertyEdit() {
   const [selectedPrefs, setSelectedPrefs] = useState<string[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-  // Google Maps States
   const [addressInput, setAddressInput] = useState("");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const suggestionRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProperty();
-    const handleClickOutside = (e: MouseEvent) => {
-      if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [id]);
 
   const fetchProperty = async () => {
@@ -68,6 +54,10 @@ export function PropertyEdit() {
       });
       if (res.ok) {
         const data = await res.json();
+
+        // Format the date for the <input type="date" /> (needs YYYY-MM-DD)
+        const dateOnly = data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : "";
+
         setForm({
           address: data.address,
           bedrooms: data.bedrooms,
@@ -75,7 +65,7 @@ export function PropertyEdit() {
           garages: data.garages,
           price: data.price,
           max_tenants: data.max_tenants,
-          expiry_date: data.expiry_date || "",
+          expiry_date: dateOnly,
           description: data.description || "",
         });
         setAddressInput(data.address);
@@ -86,6 +76,60 @@ export function PropertyEdit() {
       console.error("Failed to fetch property", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`${API_URL}/properties/${id}`, {
+        method: "DELETE",
+        headers: { 'Authorization': `Bearer ${getSavedToken()}` }
+      });
+      if (res.ok) navigate('/landlord');
+    } catch (err) {
+      console.error("Delete failed", err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    setIsSaving(true);
+    try {
+      let finalImageUrls = [...previews.filter(p => !p.startsWith('blob:'))];
+
+      if (selectedFiles.length > 0) {
+        const formData = new FormData();
+        selectedFiles.forEach(file => formData.append('files', file));
+        const uploadRes = await fetch(`${API_URL}/storage/upload`, {
+          method: "POST",
+          headers: { 'Authorization': `Bearer ${getSavedToken()}` },
+          body: formData
+        });
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          finalImageUrls = [...finalImageUrls, ...uploadData.urls];
+        }
+      }
+
+      await fetch(`${API_URL}/properties/${id}`, {
+        method: "PATCH",
+        headers: {
+          'Authorization': `Bearer ${getSavedToken()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...form,
+          tenant_preferences: selectedPrefs,
+          images: finalImageUrls
+        })
+      });
+      navigate('/landlord');
+    } catch (error) {
+      console.error("Update failed", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -111,61 +155,28 @@ export function PropertyEdit() {
     } catch (error) { console.error(error); } finally { setIsOptimizing(false); }
   };
 
-  const handleUpdate = async () => {
-    setIsSaving(true);
-    try {
-      let finalImageUrls = [...previews.filter(p => !p.startsWith('blob:'))];
-
-      if (selectedFiles.length > 0) {
-        const formData = new FormData();
-        selectedFiles.forEach(file => formData.append('files', file));
-        const uploadRes = await fetch(`${API_URL}/storage/upload`, {
-          method: "POST",
-          headers: { 'Authorization': `Bearer ${getSavedToken()}` },
-          body: formData
-        });
-        if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          finalImageUrls = [...finalImageUrls, ...uploadData.urls];
-        }
-      }
-
-      const response = await fetch(`${API_URL}/properties/${id}`, {
-        method: "PATCH",
-        headers: {
-          'Authorization': `Bearer ${getSavedToken()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...form,
-          tenant_preferences: selectedPrefs,
-          images: finalImageUrls
-        })
-      });
-
-      if (response.ok) {
-        navigate('/landlord');
-      }
-    } catch (error) {
-      console.error("Update failed", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
       <div className="max-w-lg mx-auto pb-24 px-4 pt-6">
-        <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => navigate(-1)} className="p-2 bg-muted rounded-full">
-            <ArrowLeft size={20} />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="p-2 bg-muted rounded-full">
+              <ArrowLeft size={20} />
+            </button>
+            <h2 className="text-2xl font-black">Edit Property</h2>
+          </div>
+
+          <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2.5 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+          >
+            <Trash2 size={22} />
           </button>
-          <h2 className="text-2xl font-black">Edit Property</h2>
         </div>
 
         <div className="bg-white rounded-[2.5rem] border border-border p-6 space-y-6 shadow-sm">
-          {/* Photos */}
+          {/* Gallery */}
           <div className="space-y-3">
             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Property Gallery</label>
             <div className="grid grid-cols-4 gap-2">
@@ -192,7 +203,7 @@ export function PropertyEdit() {
           </div>
 
           {/* Address */}
-          <div className="relative" ref={suggestionRef}>
+          <div>
             <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Address</label>
             <input
                 className="w-full px-4 py-3.5 rounded-2xl bg-muted/40 border-none outline-none text-sm font-medium"
@@ -202,7 +213,7 @@ export function PropertyEdit() {
             />
           </div>
 
-          {/* Numbers */}
+          {/* Layout Grid */}
           <div className="grid grid-cols-3 gap-3">
             {[{l: 'Beds', k: 'bedrooms'}, {l: 'Baths', k: 'bathrooms'}, {l: 'Garages', k: 'garages'}].map(i => (
                 <div key={i.k}>
@@ -226,6 +237,19 @@ export function PropertyEdit() {
               <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Max Tenants</label>
               <input type="number" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none text-center font-bold" value={form.max_tenants} onChange={e => setForm({...form, max_tenants: +e.target.value})} />
             </div>
+          </div>
+
+          {/* Expiry Date Calendar */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block flex items-center gap-1">
+              <Calendar size={10} /> Listing Expiry Date
+            </label>
+            <input
+                type="date"
+                className="w-full px-4 py-3.5 rounded-2xl bg-muted/40 border-none outline-none text-sm font-bold"
+                value={form.expiry_date}
+                onChange={e => setForm({...form, expiry_date: e.target.value})}
+            />
           </div>
 
           {/* Description & AI */}
@@ -271,6 +295,36 @@ export function PropertyEdit() {
             Save Changes
           </button>
         </div>
+
+        {/* Delete Modal */}
+        {showDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm text-center space-y-4">
+                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                  <AlertCircle size={32} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">Delete Property?</h3>
+                  <p className="text-muted-foreground text-sm mt-1">This will permanently remove the listing and all its photos.</p>
+                </div>
+                <div className="flex flex-col gap-2 pt-2">
+                  <button
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="w-full bg-red-500 text-white py-3.5 rounded-2xl font-bold flex items-center justify-center"
+                  >
+                    {isDeleting ? <Loader2 className="animate-spin" size={18}/> : "Yes, Delete Listing"}
+                  </button>
+                  <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="w-full bg-muted py-3.5 rounded-2xl font-bold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+        )}
       </div>
   );
 }
