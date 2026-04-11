@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
 import { getMatchExplanation, getPropertyById } from "../services/api";
+import { getUserById } from "../services/auth";
 import axios from "axios";
 
 interface PropertyData {
@@ -31,6 +32,7 @@ interface PropertyData {
   tenant_preferences: string[];
   interested_user_ids: string[];
   approved_user_ids: string[];
+  super_liked_user_ids?: string[];
   super_liked_by_me: boolean;
   coords?: string;
 }
@@ -69,6 +71,7 @@ export function PropertyDetail() {
     tenant_preferences: storeProperty.tenantPreferences,
     interested_user_ids: storeProperty.interestedTenants,
     approved_user_ids: storeProperty.matchedTenants,
+    super_liked_user_ids: [],
     super_liked_by_me: false,
   } as PropertyData : null);
 
@@ -78,6 +81,9 @@ export function PropertyDetail() {
   const [loadingExplanation, setLoadingExplanation] = useState(true);
   const [loadingProperty, setLoadingProperty] = useState(true);
   
+  const [tribeProfiles, setTribeProfiles] = useState<any[]>([]);
+  const [loadingTribe, setLoadingTribe] = useState(false);
+
   const [commuteInfo, setCommuteData] = useState<{ time: string; dist: string } | null>(null);
   const [loadingCommute, setLoadingCommute] = useState(false);
 
@@ -92,6 +98,32 @@ export function PropertyDetail() {
         .finally(() => setLoadingProperty(false));
     }
   }, [id]);
+
+  useEffect(() => {
+    if (displayProperty) {
+      const allIds = Array.from(new Set([
+        ...displayProperty.approved_user_ids,
+        ...displayProperty.interested_user_ids,
+        ...(displayProperty.super_liked_user_ids || []),
+        ...(user ? [user.id] : [])
+      ]));
+
+      setLoadingTribe(true);
+      Promise.all(allIds.map(uid => getUserById(uid).catch(() => null)))
+        .then(results => {
+           const valid = results.filter(Boolean).map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              photo: p.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+              bio: p.bio || "Member of this tribe",
+              traits: p.tags || p.personality_label ? [p.personality_label, ...(p.tags || [])] : ["Friendly"],
+              phone: p.phone || ""
+           }));
+           setTribeProfiles(valid);
+        })
+        .finally(() => setLoadingTribe(false));
+    }
+  }, [displayProperty?.id, displayProperty?.interested_user_ids?.length, displayProperty?.approved_user_ids?.length, user?.id]);
 
   useEffect(() => {
     if (user?.id && id && user?.type === "tenant") {
@@ -161,7 +193,6 @@ export function PropertyDetail() {
   }
 
   // Map data for components
-  const matchedProfiles = tenantProfiles.filter((t) => displayProperty.approved_user_ids.includes(t.id) || displayProperty.interested_user_ids.includes(t.id));
   const interestedProfiles = tenantProfiles.filter((t) => displayProperty.interested_user_ids.includes(t.id));
   
   const minPrice = (displayProperty.price / (displayProperty.max_tenants || 1)).toFixed(0);
@@ -263,12 +294,14 @@ export function PropertyDetail() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-6">
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                        <Zap className="w-3.5 h-3.5 fill-current" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.1em]">
-                          {matchExplanation?.overall_match_score ? `${matchExplanation.overall_match_score}% Fit` : "AI Match Syncing..."}
-                        </span>
-                    </div>
+                    {matchExplanation?.overall_match_score && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          <Zap className="w-3.5 h-3.5 fill-current" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.1em]">
+                            {matchExplanation.overall_match_score}% Fit
+                          </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
                         <Target className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-black uppercase tracking-[0.1em]">Targeted Match</span>
@@ -436,27 +469,73 @@ export function PropertyDetail() {
                     <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
                       <Users className="w-6 h-6 text-primary" /> Your Potential Tribe
                     </h3>
-                    <div className="text-xs font-black uppercase tracking-widest text-muted-foreground">{property.current_tenants} Members</div>
+                    <div className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                      {loadingTribe ? "..." : tribeProfiles.length} Members
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {matchedProfiles.length > 0 ? matchedProfiles.map((t) => (
-                      <div key={t.id} className="flex items-center gap-4 p-5 rounded-[2rem] bg-card border border-border group hover:border-primary/40 transition-all hover:shadow-xl">
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 border-background shadow-lg">
-                          <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-base font-black mb-1">{t.name}</div>
-                          <p className="text-xs text-muted-foreground font-medium line-clamp-1 mb-3">{t.bio}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {t.traits.slice(0, 3).map(trait => (
-                              <span key={trait} className={cn("px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md border", getTagStyle(trait))}>
-                                {trait}
-                              </span>
-                            ))}
+                    {loadingTribe ? (
+                       <div className="md:col-span-2 flex flex-col items-center py-12 gap-4">
+                          <Loader2 className="w-8 h-8 animate-spin text-primary/40" />
+                          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Gathering Tribe Profiles...</p>
+                       </div>
+                    ) : tribeProfiles.length > 0 ? tribeProfiles.map((t) => {
+                      const isMe = t.id === user?.id;
+                      const hasSuperLiked = displayProperty.super_liked_user_ids?.includes(t.id) || (isMe && isSuperInterested);
+                      
+                      return (
+                        <div 
+                          key={t.id} 
+                          className={cn(
+                            "flex items-center gap-4 p-5 rounded-[2rem] bg-card border group transition-all hover:shadow-xl relative overflow-hidden",
+                            isMe ? "border-primary shadow-[0_0_20px_rgba(232,85,61,0.15)] ring-1 ring-primary/20" : "border-border hover:border-primary/40",
+                            hasSuperLiked && "border-amber-400/50 shadow-[0_0_25px_rgba(251,191,36,0.1)]"
+                          )}
+                        >
+                          {/* Special Glow for Me */}
+                          {isMe && (
+                             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/5 rounded-full blur-3xl animate-pulse" />
+                          )}
+
+                          <div className={cn(
+                            "w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 shadow-lg relative",
+                            isMe ? "border-primary" : "border-background",
+                            hasSuperLiked && "border-amber-400"
+                          )}>
+                            <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                            {hasSuperLiked && (
+                               <div className="absolute top-0 right-0 p-1">
+                                  <div className="bg-amber-400 rounded-full p-0.5 shadow-lg">
+                                     <Star className="w-2.5 h-2.5 text-white fill-current" />
+                                  </div>
+                               </div>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                               <div className="text-base font-black truncate">{t.name}</div>
+                               {isMe && (
+                                  <span className="bg-primary/10 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-primary/20">You</span>
+                                )}
+                                {hasSuperLiked && (
+                                  <span className="bg-amber-400/10 text-amber-600 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-amber-400/20 flex items-center gap-1">
+                                    <Zap className="w-2 h-2 fill-current" /> Super
+                                  </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground font-medium line-clamp-1 mb-3">{t.bio}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {t.traits?.slice(0, 3).map((trait: string) => (
+                                <span key={trait} className={cn("px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md border", getTagStyle(trait))}>
+                                  {trait}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )) : (
+                      );
+                    }) : (
                       <div className="md:col-span-2 p-10 rounded-[2.5rem] border border-dashed border-border flex flex-col items-center justify-center text-center">
                         <Users className="w-10 h-10 text-muted-foreground/30 mb-4" />
                         <p className="text-muted-foreground font-medium text-sm">Be the first to join this tribe!</p>
@@ -496,7 +575,7 @@ export function PropertyDetail() {
                           <div>
                             <div className="text-sm font-black">To Your Location</div>
                             <div className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
-                                <Navigation className="w-3 h-3" /> {loadingCommute ? "Syncing..." : "via Public Transport"}
+                                <Navigation className="w-3 h-3" /> {loadingCommute ? "Calculating..." : "via Public Transport"}
                             </div>
                           </div>
                       </div>

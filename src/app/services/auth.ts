@@ -51,6 +51,11 @@ export async function getMe(): Promise<UserProfile> {
   return data;
 }
 
+export async function getUserById(userId: string): Promise<UserProfile> {
+  const { data } = await api.get<UserProfile>(`/users/${userId}`);
+  return data;
+}
+
 export async function updateUser(userId: string, payload: Partial<UserProfile>): Promise<UserProfile> {
   const { data } = await api.patch<UserProfile>(`/users/${userId}`, payload);
   return data;

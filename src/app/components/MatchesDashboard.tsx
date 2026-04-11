@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useApp } from "../store";
 import { useNavigate } from "react-router";
 import { 
-  Heart, Star, Users, MapPin, ChevronRight, XCircle, Undo2, 
-  Loader2, Trash2, Zap, Clock, RefreshCcw, Sparkles, 
-  Navigation, ShieldCheck, Target, TrendingUp
+  Heart, Star, Users, MapPin, XCircle, Undo2, 
+  Loader2, Trash2, Zap, RefreshCcw, Sparkles, 
+  Target, TrendingUp
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { getMe } from "../services/auth";
-import { getPropertyById, removeInterest, removeDislike, addDislike, superLike, refreshSuperLike, addInterest, getMatchExplanation } from "../services/api";
+import { getPropertyById, removeInterest, removeDislike, addDislike, superLike, refreshSuperLike, addInterest } from "../services/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
@@ -147,7 +147,7 @@ export function MatchesDashboard() {
                <Loader2 className="w-12 h-12 animate-spin text-primary" />
                <Sparkles className="w-6 h-6 text-amber-400 absolute -top-2 -right-2 animate-bounce" />
             </div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Syncing Match Neural Network...</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Fetching Your Tribe...</p>
           </div>
         ) : (
           <div className="space-y-6">
