@@ -38,4 +38,28 @@ export const getPropertyById = async (propertyId: string) => {
   return response.data;
 };
 
+export const addInterest = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/interest`);
+};
+
+export const removeInterest = async (propertyId: string) => {
+  return api.delete(`/properties/${propertyId}/interest`);
+};
+
+export const addDislike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/dislike`);
+};
+
+export const removeDislike = async (propertyId: string) => {
+  return api.delete(`/properties/${propertyId}/dislike`);
+};
+
+export const superLike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/super-like`);
+};
+
+export const refreshSuperLike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/super-like/refresh`);
+};
+
 export default api;
