@@ -95,6 +95,7 @@ interface AppState {
   unmatchFromProperty: (propertyId: string) => void;
   canSuperInterest: () => boolean;
   tenantProfiles: TenantProfile[];
+  refreshProperties: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState>({} as AppState);
