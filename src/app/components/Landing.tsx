@@ -124,8 +124,8 @@ export function Landing() {
             </div>
 
             <div className="flex items-center gap-4">
-               <Button variant="ghost" className="hidden sm:flex font-bold rounded-xl text-white/60 hover:text-white hover:bg-white/5" onClick={() => navigate("/auth")}>Login</Button>
-               <Button className="bg-white text-black hover:bg-[#e8553d] hover:text-white rounded-xl font-bold px-6 shadow-xl shadow-white/5 transition-all" onClick={() => navigate("/auth?type=tenant")}>
+               <Button variant="ghost" className="hidden sm:flex font-bold rounded-xl text-white/60 hover:text-white hover:bg-white/5" onClick={() => navigate("/login")}>Login</Button>
+               <Button className="bg-white text-black hover:bg-[#e8553d] hover:text-white rounded-xl font-bold px-6 shadow-xl shadow-white/5 transition-all" onClick={() => navigate("/signup/tenant")}>
                 Get Started
                </Button>
             </div>
@@ -188,7 +188,7 @@ export function Landing() {
                 <Button
                     size="lg"
                     className="w-full sm:w-auto px-12 py-8 text-xl font-black rounded-2xl bg-[#e8553d] text-white shadow-2xl shadow-[#e8553d]/40 hover:scale-105 transition-all group border-none"
-                    onClick={() => navigate("/auth?type=tenant")}
+                    onClick={() => navigate("/signup/tenant")}
                 >
                   START MATCHING <ArrowRight className="ml-3 w-6 h-6 group-hover:translate-x-2 transition-transform" />
                 </Button>
@@ -198,7 +198,7 @@ export function Landing() {
                   variant="outline"
                   size="lg"
                   className="w-full sm:w-auto px-12 py-8 text-xl font-bold rounded-2xl bg-white/5 border-white/10 text-white hover:bg-white/10 transition-all shadow-lg backdrop-blur-xl"
-                  onClick={() => navigate("/auth?type=landlord")}
+                  onClick={() => navigate("/signup/landlord")}
               >
                 List a Property
               </Button>
@@ -460,7 +460,7 @@ export function Landing() {
                 <Button
                     size="lg"
                     className="px-16 py-12 text-3xl font-black rounded-[2.5rem] bg-[#e8553d] text-white shadow-[0_30px_100px_rgba(232,85,61,0.3)] hover:scale-110 transition-all hover:bg-white hover:text-black border-none"
-                    onClick={() => navigate("/auth")}
+                    onClick={() => navigate("/signup/tenant")}
                 >
                     START MATCHING
                 </Button>
