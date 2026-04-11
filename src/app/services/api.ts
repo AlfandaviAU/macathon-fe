@@ -33,4 +33,9 @@ export const getMatchExplanation = async (userId: string, propertyId: string) =>
   return response.data;
 };
 
+export const getPropertyById = async (propertyId: string) => {
+  const response = await api.get(`/properties/${propertyId}`);
+  return response.data;
+};
+
 export default api;

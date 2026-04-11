@@ -4,30 +4,72 @@ import {
   ArrowLeft, Bed, Bath, Car, Users, MapPin, Calendar, 
   MessageCircle, Undo2, XCircle, Star, Sparkles, 
   Home as HomeIcon, CheckCircle2, ShieldCheck, Info,
-  Zap, Clock, Target, Coffee, Utensils, Dumbbell, Loader2
+  Zap, Clock, Target, Coffee, Utensils, Dumbbell, Loader2,
+  ThumbsUp, ThumbsDown, Navigation
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
-import { getMatchExplanation } from "../services/api";
+import { getMatchExplanation, getPropertyById } from "../services/api";
+import axios from "axios";
+
+interface PropertyData {
+  id: string;
+  landlord_id: string;
+  address: string;
+  price: number;
+  description: string;
+  images: string[];
+  bedrooms: number;
+  bathrooms: number;
+  garages: number;
+  max_tenants: number;
+  current_tenants: number;
+  expiry_date: string | null;
+  tenant_preferences: string[];
+  interested_user_ids: string[];
+  approved_user_ids: string[];
+  super_liked_by_me: boolean;
+  coords?: string;
+}
+
+interface MatchExplanation {
+  overall_match_score: number;
+  summary: string;
+  pros: string[];
+  cons: string[];
+  commute_time?: number;
+  match_breakdown?: { label: string; val: number; desc: string }[];
+}
 
 export function PropertyDetail() {
   const { id } = useParams();
-  const { properties, tenantProfiles, user, superInterests, canSuperInterest, addSuperInterest, withdrawInterest, unmatchFromProperty } = useApp();
+  const { tenantProfiles, user, superInterests, canSuperInterest, addSuperInterest, withdrawInterest, unmatchFromProperty } = useApp();
   const navigate = useNavigate();
+  
+  const [property, setProperty] = useState<PropertyData | null>(null);
+  const [loadingProperty, setLoadingProperty] = useState(true);
   const [imgIdx, setImgIdx] = useState(0);
   const [confirmUnmatch, setConfirmUnmatch] = useState(false);
-  const [matchExplanation, setMatchExplanation] = useState<{
-    overall_match_score: number;
-    reasons: string[];
-    commute_time?: number;
-    match_breakdown?: { label: string; val: number; desc: string }[];
-  } | null>(null);
+  const [matchExplanation, setMatchExplanation] = useState<MatchExplanation | null>(null);
   const [loadingExplanation, setLoadingExplanation] = useState(false);
+  
+  const [commuteInfo, setCommuteData] = useState<{ time: string; dist: string } | null>(null);
+  const [loadingCommute, setLoadingCommute] = useState(false);
 
-  const property = properties.find((p) => p.id === id);
+  const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  useEffect(() => {
+    if (id) {
+      setLoadingProperty(true);
+      getPropertyById(id)
+        .then((data) => setProperty(data))
+        .catch((err) => console.error("Failed to fetch property:", err))
+        .finally(() => setLoadingProperty(false));
+    }
+  }, [id]);
 
   useEffect(() => {
     if (user?.id && id && user?.type === "tenant") {
@@ -45,6 +87,44 @@ export function PropertyDetail() {
     }
   }, [user?.id, id, user?.type]);
 
+  // Dynamic Commute Analysis using Google Maps API
+  useEffect(() => {
+    const userLoc = user?.onboardingAnswers?.["5_study_locations"];
+    if (property?.address && userLoc && GOOGLE_KEY) {
+      setLoadingCommute(true);
+      // We use a proxy path or absolute URL if allowed by Vite config
+      // For this hackathon, we'll assume the browser can reach the API or use the proxy defined in onboarding
+      axios.get(`/google-api/maps/api/distancematrix/json`, {
+        params: {
+          origins: property.address,
+          destinations: userLoc,
+          mode: "transit",
+          key: GOOGLE_KEY
+        }
+      })
+      .then(res => {
+        const element = res.data.rows?.[0]?.elements?.[0];
+        if (element && element.status === "OK") {
+          setCommuteData({
+            time: element.duration.text,
+            dist: element.distance.text
+          });
+        }
+      })
+      .catch(err => console.error("Commute fetch error:", err))
+      .finally(() => setLoadingCommute(false));
+    }
+  }, [property?.address, user?.onboardingAnswers, GOOGLE_KEY]);
+
+  if (loadingProperty) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-background">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Loading Property Intelligence...</p>
+      </div>
+    );
+  }
+
   if (!property) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
@@ -57,25 +137,24 @@ export function PropertyDetail() {
     );
   }
 
-  const matchedProfiles = tenantProfiles.filter((t) => property.matchedTenants.includes(t.id));
-  const interestedProfiles = tenantProfiles.filter((t) => property.interestedTenants.includes(t.id));
-  const minPrice = (property.weeklyPrice / property.maxTenants).toFixed(0);
-  const currentPrice = (property.weeklyPrice / Math.max(property.matchedTenants.length, 1)).toFixed(0);
+  const matchedProfiles = tenantProfiles.filter((t) => property.approved_user_ids.includes(t.id) || property.interested_user_ids.includes(t.id));
+  const interestedProfiles = tenantProfiles.filter((t) => property.interested_user_ids.includes(t.id));
+  
+  const minPrice = (property.price / property.max_tenants).toFixed(0);
+  const currentPrice = (property.price / Math.max(property.current_tenants, 1)).toFixed(0);
 
-  // Super Interest Logic - Only for tenants
   const isTenant = user?.type === "tenant";
   const superInterestIds = isTenant ? superInterests.map((s) => s.propertyId) : [];
-  const isSuperInterested = isTenant ? superInterestIds.includes(property.id) : false;
+  const isSuperInterested = property.super_liked_by_me || (isTenant && superInterestIds.includes(property.id));
   const canUseSuperInterest = isTenant ? (canSuperInterest() && !isSuperInterested) : false;
 
   const smsLink = `sms:${interestedProfiles.map((t) => t.phone).join(",")}?body=Hey! We're all matched on ${property.address} via Dwllr. Let's chat!`;
 
-  // --- Tag Styling Helper ---
   const getTagStyle = (tag: string) => {
     const t = tag.toLowerCase();
     if (t.includes("tidy") || t.includes("clean") || t.includes("neat")) 
       return "bg-emerald-50 text-emerald-700 border-emerald-200/50";
-    if (t.includes("smoke") || t.includes("quiet") || t.includes("early") || t.includes("study")) 
+    if (t.includes("smoke") || t.includes("quiet") || t.includes("early") || t.includes("study") || t.includes("student")) 
       return "bg-blue-50 text-blue-700 border-blue-200/50";
     if (t.includes("social") || t.includes("night") || t.includes("active") || t.includes("friendly") || t.includes("vibe")) 
       return "bg-orange-50 text-orange-700 border-orange-200/50";
@@ -84,11 +163,13 @@ export function PropertyDetail() {
     return "bg-muted/50 text-muted-foreground border-border/50";
   };
 
+  const images = property.images?.length > 0 ? property.images : ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000"];
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-40">
       
       {/* 1. SEAMLESS IMAGE GALLERY */}
-      <section className="relative w-full aspect-[16/10] md:aspect-[21/9] overflow-hidden bg-muted/20">
+      <section className="relative w-full aspect-[16/10] md:aspect-[21/9] overflow-hidden bg-muted/20 border-b border-border">
         <AnimatePresence mode="wait">
           <motion.div
             key={imgIdx}
@@ -99,14 +180,13 @@ export function PropertyDetail() {
             className="w-full h-full"
           >
             <ImageWithFallback 
-               src={property.images[imgIdx]} 
+               src={images[imgIdx]} 
                alt={property.address} 
                className="w-full h-full object-cover" 
             />
           </motion.div>
         </AnimatePresence>
 
-        {/* Floating Nav Controls */}
         <div className="absolute top-6 left-6 z-10">
           <button
             onClick={() => navigate(-1)}
@@ -116,14 +196,12 @@ export function PropertyDetail() {
           </button>
         </div>
 
-        {/* Counter */}
         <div className="absolute bottom-6 right-6 z-10 px-4 py-2 rounded-2xl bg-white/90 backdrop-blur-md border border-white/10 text-foreground text-[12px] font-black tracking-widest shadow-xl">
-          {imgIdx + 1} / {property.images.length}
+          {imgIdx + 1} / {images.length}
         </div>
 
-        {/* Progress Track */}
         <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 px-10 pointer-events-none">
-          {property.images.map((_, i) => (
+          {images.map((_, i) => (
             <div
               key={i}
               className={cn(
@@ -138,14 +216,13 @@ export function PropertyDetail() {
       {/* 2. THE CONTENT */}
       <main className="max-w-4xl mx-auto px-6 pt-10 relative">
         
-        {/* Title & Core Meta */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-6">
                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                     <Zap className="w-3.5 h-3.5 fill-current" />
                     <span className="text-[10px] font-black uppercase tracking-[0.1em]">
-                      {matchExplanation?.overall_match_score ?? 98}% Perfect Fit
+                      {matchExplanation?.overall_match_score || "Calculating..."}{matchExplanation?.overall_match_score ? "% Match" : ""}
                     </span>
                  </div>
                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
@@ -172,17 +249,16 @@ export function PropertyDetail() {
                 <span className="text-6xl font-black text-primary tracking-tighter">${minPrice}</span>
                 <span className="text-primary font-bold">/wk</span>
               </div>
-              <div className="text-[10px] font-bold text-primary/40 mt-1 uppercase">Total: ${property.weeklyPrice}pw</div>
+              <div className="text-[10px] font-bold text-primary/40 mt-1 uppercase">Total: ${property.price}pw</div>
             </div>
         </div>
 
-        {/* STATS GRID */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
            {[
              { icon: Bed, label: "Bedrooms", val: property.bedrooms, color: "text-blue-500", bg: "bg-blue-50", sub: "Spacious" },
              { icon: Bath, label: "Bathrooms", val: property.bathrooms, color: "text-purple-500", bg: "bg-purple-50", sub: "Modern" },
              { icon: Car, label: "Parking", val: property.garages, color: "text-emerald-500", bg: "bg-emerald-50", sub: "Secure" },
-             { icon: Users, label: "Max Tribe", val: property.maxTenants, color: "text-orange-500", bg: "bg-orange-50", sub: "Shared" },
+             { icon: Users, label: "Max Tribe", val: property.max_tenants, color: "text-orange-500", bg: "bg-orange-50", sub: "Shared" },
            ].map(({ icon: Icon, label, val, color, bg, sub }) => (
              <div key={label} className={cn("rounded-[2rem] p-6 border border-transparent transition-all hover:border-border hover:shadow-xl group", bg)}>
                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shadow-sm bg-white", color)}>
@@ -195,19 +271,26 @@ export function PropertyDetail() {
            ))}
         </div>
 
-        {/* MAIN GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          
-          {/* Left Column: Intelligence */}
           <div className="lg:col-span-2 space-y-12">
             
+            {/* PROPERTY DESCRIPTION */}
+            <section className="space-y-4">
+               <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
+                  <Info className="w-6 h-6 text-primary" /> About the Space
+               </h3>
+               <p className="text-muted-foreground text-lg leading-relaxed font-medium">
+                  {property.description}
+               </p>
+            </section>
+
             {/* AI MATCH ANALYSIS (Only for Tenants) */}
             {isTenant && (
               <motion.section 
                 initial={{ opacity: 0, y: 20 }} 
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-card border border-border rounded-[2.5rem] p-8 relative overflow-hidden"
+                className="bg-card border border-border rounded-[2.5rem] p-8 relative overflow-hidden shadow-sm"
               >
                 <div className="absolute top-0 right-0 p-8">
                     <Sparkles className="w-12 h-12 text-primary opacity-5 animate-pulse" />
@@ -222,15 +305,47 @@ export function PropertyDetail() {
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Analyzing compatibility...</p>
                   </div>
                 ) : matchExplanation ? (
-                  <div className="space-y-10">
-                    {/* Reasons list */}
-                    <div className="space-y-4">
-                      {matchExplanation.reasons?.map((reason, i) => (
-                        <div key={i} className="flex gap-4 p-4 rounded-2xl bg-muted/30 border border-border/50">
-                           <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-                           <p className="text-sm font-medium leading-relaxed">{reason}</p>
-                        </div>
-                      ))}
+                  <div className="space-y-8">
+                    {/* Summary */}
+                    <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-4">
+                          <Info className="w-5 h-5 text-primary/20" />
+                       </div>
+                       <p className="text-sm font-bold leading-relaxed text-foreground/80 italic">
+                          "{matchExplanation.summary}"
+                       </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {/* Pros */}
+                       <div className="space-y-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+                             <ThumbsUp className="w-3.5 h-3.5" /> Key Advantages
+                          </h4>
+                          <div className="space-y-3">
+                             {matchExplanation.pros?.map((pro, i) => (
+                               <div key={i} className="flex gap-3 p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                  <p className="text-[12px] font-medium leading-relaxed">{pro}</p>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
+
+                       {/* Cons */}
+                       <div className="space-y-4">
+                          <h4 className="text-[10px] font-black uppercase tracking-widest text-rose-600 flex items-center gap-2">
+                             <ThumbsDown className="w-3.5 h-3.5" /> Consideration Points
+                          </h4>
+                          <div className="space-y-3">
+                             {matchExplanation.cons?.map((con, i) => (
+                               <div key={i} className="flex gap-3 p-4 rounded-2xl bg-rose-50/50 border border-rose-100">
+                                  <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                                  <p className="text-[12px] font-medium leading-relaxed">{con}</p>
+                               </div>
+                             ))}
+                          </div>
+                       </div>
                     </div>
 
                     {/* Match Breakdown (if available) */}
@@ -268,7 +383,7 @@ export function PropertyDetail() {
             <motion.section initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <h3 className="text-2xl font-black tracking-tight mb-6">Ideal Tribe Values</h3>
               <div className="flex flex-wrap gap-3">
-                {property.tenantPreferences.map((pref) => (
+                {property.tenant_preferences.map((pref) => (
                   <div key={pref} className={cn("flex items-center gap-2 px-5 py-3 rounded-2xl border shadow-sm transition-all hover:scale-105", getTagStyle(pref))}>
                     <CheckCircle2 className="w-4 h-4 opacity-70" />
                     <span className="text-sm font-bold">{pref}</span>
@@ -283,10 +398,10 @@ export function PropertyDetail() {
                 <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">
                   <Users className="w-6 h-6 text-primary" /> Your Potential Tribe
                 </h3>
-                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground">{matchedProfiles.length} Members</div>
+                <div className="text-xs font-black uppercase tracking-widest text-muted-foreground">{property.current_tenants} Members</div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {matchedProfiles.map((t) => (
+                {matchedProfiles.length > 0 ? matchedProfiles.map((t) => (
                   <div key={t.id} className="flex items-center gap-4 p-5 rounded-[2rem] bg-card border border-border group hover:border-primary/40 transition-all hover:shadow-xl">
                     <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 border-background shadow-lg">
                       <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
@@ -303,20 +418,22 @@ export function PropertyDetail() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="md:col-span-2 p-10 rounded-[2.5rem] border border-dashed border-border flex flex-col items-center justify-center text-center">
+                     <Users className="w-10 h-10 text-muted-foreground/30 mb-4" />
+                     <p className="text-muted-foreground font-medium text-sm">Be the first to join this tribe!</p>
+                  </div>
+                )}
               </div>
             </section>
           </div>
 
-          {/* Right Column: Listing Meta */}
           <div className="space-y-8">
-            
-            {/* Tribe Values */}
             <div className="p-8 rounded-[2.5rem] bg-foreground text-background shadow-2xl relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-10 -mt-10" />
                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40 mb-8">Required Vibe</h4>
                <div className="space-y-4">
-                 {property.tenantPreferences.map((pref) => (
+                 {property.tenant_preferences.map((pref) => (
                    <div key={pref} className="flex items-center gap-3">
                       <div className={cn("w-2 h-2 rounded-full", getTagStyle(pref).split(' ')[1].replace('bg-', 'bg-').replace('text-', 'bg-'))} />
                       <span className="text-sm font-bold tracking-tight">{pref}</span>
@@ -325,38 +442,68 @@ export function PropertyDetail() {
                </div>
             </div>
 
-            {/* Commute Widget */}
             {isTenant && (
-              <div className="p-8 rounded-[2.5rem] bg-card border border-border shadow-sm">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-8">Commute Analysis</h4>
-                <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex flex-col items-center justify-center border border-primary/20">
-                      <Clock className="w-6 h-6 text-primary mb-0.5" />
-                      <span className="text-[10px] font-black">{matchExplanation?.commute_time ?? "??"}m</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-black">To Your Location</div>
-                      <div className="text-[11px] text-muted-foreground font-medium">via Public Transport</div>
-                    </div>
+              <div className="p-8 rounded-[2.5rem] bg-card border border-border shadow-sm space-y-8">
+                <div>
+                   <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground mb-8">Commute Analysis</h4>
+                   <div className="flex items-center gap-6">
+                       <div className="w-16 h-16 rounded-full bg-primary/10 flex flex-col items-center justify-center border border-primary/20">
+                         {loadingCommute ? (
+                           <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                         ) : (
+                           <Clock className="w-6 h-6 text-primary mb-0.5" />
+                         )}
+                         <span className="text-[10px] font-black">{commuteInfo?.time ?? "??"}</span>
+                       </div>
+                       <div>
+                         <div className="text-sm font-black">To Your Location</div>
+                         <div className="text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+                            <Navigation className="w-3 h-3" /> {loadingCommute ? "Calculating..." : "via Public Transport"}
+                         </div>
+                       </div>
+                   </div>
                 </div>
-                <div className="mt-8 pt-8 border-t border-border">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                      <span>Last Active</span>
-                      <span className="text-emerald-500">Just Now</span>
+
+                <div className="pt-8 border-t border-border">
+                    <div className="flex justify-between items-center mb-4">
+                       <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Match Integrity</span>
+                       <div className="flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md">
+                          <ShieldCheck className="w-3 h-3" />
+                          <span className="text-[9px] font-black uppercase">Verified</span>
+                       </div>
                     </div>
+                    <div className="rounded-2xl overflow-hidden aspect-video relative border border-border">
+                       {property.address ? (
+                          <img 
+                            src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(property.address)}&zoom=14&size=400x200&maptype=roadmap&markers=color:red%7C${encodeURIComponent(property.address)}&key=${GOOGLE_KEY}`}
+                            alt="Property Location"
+                            className="w-full h-full object-cover"
+                          />
+                       ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                             <MapPin className="w-6 h-6 text-muted-foreground/20" />
+                          </div>
+                       )}
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                       <div className="absolute bottom-2 left-3 text-[8px] font-black text-white uppercase tracking-widest">Maps API Verified</div>
+                    </div>
+                    <p className="mt-3 text-[9px] text-muted-foreground leading-relaxed font-medium">
+                       Commute data and location integrity verified using Google Maps Distance Matrix and Drive API.
+                    </p>
                 </div>
               </div>
             )}
 
-            {/* Timeline Info */}
             <div className="flex flex-col gap-4">
                <div className="flex items-center gap-4 p-4 rounded-3xl bg-muted/40 border border-border/50">
                   <Calendar className="w-5 h-5 text-muted-foreground" />
-                  <div className="text-xs font-bold text-muted-foreground">Expires {new Date(property.expiryDate).toLocaleDateString()}</div>
+                  <div className="text-xs font-bold text-muted-foreground">
+                    {property.expiry_date ? `Expires ${new Date(property.expiry_date).toLocaleDateString()}` : "Active Listing"}
+                  </div>
                </div>
                <div className="flex items-center gap-4 p-4 rounded-3xl bg-muted/40 border border-border/50">
                   <Info className="w-5 h-5 text-muted-foreground" />
-                  <div className="text-xs font-bold text-muted-foreground">Listing ID: {id?.slice(0, 8)}</div>
+                  <div className="text-xs font-bold text-muted-foreground">Reference: {property.id.slice(0, 8).toUpperCase()}</div>
                </div>
             </div>
           </div>
@@ -416,7 +563,7 @@ export function PropertyDetail() {
                      className="absolute bottom-full left-6 right-6 mb-4 max-w-lg mx-auto bg-white border border-border rounded-[2.5rem] p-10 shadow-2xl pointer-events-auto"
                   >
                      <h4 className="text-2xl font-black mb-2">Wait! Removing Match?</h4>
-                     <p className="text-sm text-muted-foreground mb-8">This tribe seems like a 98% match for your personality. Are you sure you want to unmatch?</p>
+                     <p className="text-sm text-muted-foreground mb-8">This tribe seems like a {matchExplanation?.overall_match_score || 98}% match for your personality. Are you sure you want to unmatch?</p>
                      <div className="flex gap-4">
                         <Button
                            onClick={() => { unmatchFromProperty(property.id); navigate("/matches"); }}

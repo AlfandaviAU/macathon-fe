@@ -58,7 +58,7 @@ export function ProtectedLayout() {
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Home className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="text-[1.1rem] font-bold tracking-tight">Dwllr</span>
+          <span className="text-[1.1rem] font-bold tracking-tight">Dwllr.ai</span>
         </div>
         
         <div className="flex items-center gap-1">
