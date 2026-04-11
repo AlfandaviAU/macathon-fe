@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useApp, type OnboardingAnswerValue } from "../store";
+import { useApp, type OnboardingAnswerValue, type OnboardingMoveInLease } from "../store";
 import { Camera, CheckCircle2, ChevronRight, Shield } from "lucide-react";
 
 type QuestionBase = { id: string; category: string; question: string };
@@ -10,8 +10,13 @@ type NumberQ = QuestionBase & { type: "number" };
 type ScaleQ = QuestionBase & { type: "scale"; min: number; max: number };
 type RangeQ = QuestionBase & { type: "range"; min: number; max: number };
 type BooleanQ = QuestionBase & { type: "boolean" };
+type DateLeaseQ = QuestionBase & {
+  type: "date_lease";
+  leaseMinMonths: number;
+  leaseMaxMonths: number;
+};
 
-export type OnboardingQuestion = TextQ | NumberQ | ScaleQ | RangeQ | BooleanQ;
+export type OnboardingQuestion = TextQ | NumberQ | ScaleQ | RangeQ | BooleanQ | DateLeaseQ;
 
 export const TENANT_ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
   { id: "1_name", category: "Core Profile", question: "What is your full name?", type: "text" },
@@ -23,7 +28,14 @@ export const TENANT_ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
 
   { id: "7_budget_range", category: "Financial & Location", question: "Budget range per week ($)", type: "range", min: 50, max: 2000 },
   { id: "8_distance_preference", category: "Financial & Location", question: "Distance preference (Max radius in km)", type: "number" },
-  { id: "9_move_in_date", category: "Financial & Location", question: "Move-in Date & Lease Length", type: "text" },
+  {
+    id: "9_move_in_date",
+    category: "Financial & Location",
+    question: "Move-in Date & Lease Length",
+    type: "date_lease",
+    leaseMinMonths: 1,
+    leaseMaxMonths: 120,
+  },
   { id: "10_parking_requirement", category: "Financial & Location", question: "Parking requirement?", type: "boolean" },
 
   { id: "11_cleanliness_level", category: "Lifestyle Big Three", question: "Cleanliness Level (1-5)", type: "scale", min: 1, max: 5 },
@@ -41,6 +53,18 @@ export const TENANT_ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
 ];
 
 type Stage = "liveliness" | "questionnaire" | "complete";
+
+function todayISODateLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isMoveInLeaseValue(v: OnboardingAnswerValue | undefined): v is OnboardingMoveInLease {
+  return typeof v === "object" && v !== null && "moveInDate" in v && "leaseLengthMonths" in v;
+}
 
 function isValidAnswer(q: OnboardingQuestion, v: OnboardingAnswerValue | undefined): boolean {
   if (v === undefined) return false;
@@ -71,6 +95,27 @@ function isValidAnswer(q: OnboardingQuestion, v: OnboardingAnswerValue | undefin
       );
     case "boolean":
       return typeof v === "boolean";
+    case "date_lease": {
+      if (!isMoveInLeaseValue(v)) return false;
+      const { moveInDate, leaseLengthMonths } = v;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(moveInDate)) return false;
+      const parsed = Date.parse(`${moveInDate}T12:00:00`);
+      if (Number.isNaN(parsed)) return false;
+      const move = new Date(parsed);
+      move.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (move < today) return false;
+      if (
+        !Number.isFinite(leaseLengthMonths) ||
+        !Number.isInteger(leaseLengthMonths) ||
+        leaseLengthMonths < q.leaseMinMonths ||
+        leaseLengthMonths > q.leaseMaxMonths
+      ) {
+        return false;
+      }
+      return true;
+    }
     default:
       return false;
   }
@@ -326,6 +371,64 @@ export function TenantOnboarding() {
                       max={q.max}
                     />
                   </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!isValidAnswer(q, currentVal)}
+                  onClick={handleContinue}
+                  className="w-full bg-primary text-primary-foreground py-3 rounded-xl disabled:opacity-40"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+
+            {q.type === "date_lease" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[0.8rem] text-muted-foreground block mb-1.5">Move-in date</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    min={todayISODateLocal()}
+                    value={isMoveInLeaseValue(currentVal) ? currentVal.moveInDate : ""}
+                    onChange={(e) => {
+                      const moveInDate = e.target.value;
+                      const prev = isMoveInLeaseValue(currentVal)
+                        ? currentVal
+                        : { moveInDate: "", leaseLengthMonths: Number.NaN };
+                      patchAnswer({ ...prev, moveInDate });
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.8rem] text-muted-foreground block mb-1.5">
+                    Lease length (months)
+                  </label>
+                  <input
+                    type="number"
+                    className={inputClass}
+                    min={q.leaseMinMonths}
+                    max={q.leaseMaxMonths}
+                    step={1}
+                    placeholder={`${q.leaseMinMonths}–${q.leaseMaxMonths}`}
+                    value={
+                      isMoveInLeaseValue(currentVal) && Number.isFinite(currentVal.leaseLengthMonths)
+                        ? currentVal.leaseLengthMonths
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const prev = isMoveInLeaseValue(currentVal)
+                        ? currentVal
+                        : { moveInDate: "", leaseLengthMonths: Number.NaN };
+                      if (raw === "") {
+                        patchAnswer({ ...prev, leaseLengthMonths: Number.NaN });
+                        return;
+                      }
+                      patchAnswer({ ...prev, leaseLengthMonths: Number(raw) });
+                    }}
+                  />
                 </div>
                 <button
                   type="button"
