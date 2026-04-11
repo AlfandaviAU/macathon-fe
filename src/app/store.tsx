@@ -2,6 +2,20 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export type UserType = "landlord" | "tenant" | null;
 
+/** Weekly budget range (question `7_budget_range`). */
+export type OnboardingBudgetRange = { min: number; max: number };
+
+/** Move-in date + lease length on one step (question `9_move_in_date`). */
+export type OnboardingMoveInLease = { moveInDate: string; leaseLengthMonths: number };
+
+/** Values collected during tenant onboarding (keyed by question `id`). */
+export type OnboardingAnswerValue =
+  | string
+  | number
+  | boolean
+  | OnboardingBudgetRange
+  | OnboardingMoveInLease;
+
 export interface User {
   id: string;
   name: string;
@@ -11,8 +25,7 @@ export interface User {
   bio: string;
   type: UserType;
   onboarded: boolean;
-  personalityAnswers: number[];
-  choreAnswers: number[];
+  onboardingAnswers: Record<string, OnboardingAnswerValue>;
   livelinessVerified: boolean;
   lastSuperInterestTime: number | null;
 }

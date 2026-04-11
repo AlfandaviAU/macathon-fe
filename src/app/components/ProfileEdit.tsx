@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from "../store";
+import { TENANT_ONBOARDING_QUESTIONS } from "./TenantOnboarding";
 import { Camera, Save, Check, RefreshCw } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate } from "react-router";
@@ -96,12 +97,12 @@ export function ProfileEdit() {
           <h3 className="text-[0.9rem] mb-3">Your Profile Stats</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>{user.personalityAnswers.length}</div>
-              <div className="text-[0.7rem] text-muted-foreground">Personality answers</div>
+              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>{Object.keys(user.onboardingAnswers).length}</div>
+              <div className="text-[0.7rem] text-muted-foreground">Profile questions</div>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>{user.choreAnswers.length}</div>
-              <div className="text-[0.7rem] text-muted-foreground">Chore answers</div>
+              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>{TENANT_ONBOARDING_QUESTIONS.length}</div>
+              <div className="text-[0.7rem] text-muted-foreground">Total questions</div>
             </div>
             <div className="bg-muted/50 rounded-lg p-3 text-center">
               <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>
@@ -119,7 +120,7 @@ export function ProfileEdit() {
           <div className="mt-4 pt-4 border-t border-border">
             <h4 className="text-[0.85rem] mb-1">Recalibrate your profile</h4>
             <p className="text-[0.8rem] text-muted-foreground mb-3">
-              Redo the liveliness test, personality questionnaire, and chore assessment to refresh your matching algorithm profile.
+              Redo liveliness verification and the profile questionnaire to refresh your matching preferences.
             </p>
             <button
               onClick={() => {
@@ -127,8 +128,7 @@ export function ProfileEdit() {
                   ...user,
                   onboarded: false,
                   livelinessVerified: false,
-                  personalityAnswers: [],
-                  choreAnswers: [],
+                  onboardingAnswers: {},
                 });
                 navigate("/onboarding");
               }}
