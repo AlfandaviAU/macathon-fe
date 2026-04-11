@@ -51,6 +51,25 @@ export async function getMe(): Promise<UserProfile> {
   return data;
 }
 
+export async function getUserById(userId: string): Promise<UserProfile> {
+  const { data } = await api.get<UserProfile>(`/users/${userId}`);
+  return data;
+}
+
+export async function updateUser(userId: string, payload: Partial<UserProfile>): Promise<UserProfile> {
+  const { data } = await api.patch<UserProfile>(`/users/${userId}`, payload);
+  return data;
+}
+
+export async function uploadProfilePic(userId: string, file: File): Promise<{ profile_image_url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await api.post(`/users/${userId}/upload-profile-pic`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+}
+
 export function saveAuth(auth: AuthResponse) {
   localStorage.setItem("access_token", auth.access_token);
   localStorage.setItem("user_id", auth.user_id);

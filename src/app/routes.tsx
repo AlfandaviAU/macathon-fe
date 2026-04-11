@@ -1,14 +1,16 @@
 import { createBrowserRouter } from "react-router";
-import { AppProviderLayout, ProtectedRoute } from "./components/Layout";
+import { AppProviderLayout, ProtectedLayout } from "./components/Layout";
 import { Landing } from "./components/Landing";
-import { Auth } from "./components/Auth";
+import { Login } from "./components/Login";
+import { SignupTenant } from "./components/SignupTenant";
+import { SignupLandlord } from "./components/SignupLandlord";
 import { TenantOnboarding } from "./components/TenantOnboarding";
 import { SwipeInterface } from "./components/SwipeInterface";
 import { MatchesDashboard } from "./components/MatchesDashboard";
 import { PropertyDetail } from "./components/PropertyDetail";
 import { LandlordDashboard } from "./components/LandlordDashboard";
 import { ProfileEdit } from "./components/ProfileEdit";
-import {PropertyEdit} from "./components/PropertyEdit";
+import { PropertyEdit } from "./components/PropertyEdit";
 
 export const router = createBrowserRouter([
   {
@@ -17,11 +19,13 @@ export const router = createBrowserRouter([
     children: [
       // Public routes
       { index: true, Component: Landing },
-      { path: "auth", Component: Auth },
+      { path: "login", Component: Login },
+      { path: "signup/tenant", Component: SignupTenant },
+      { path: "signup/landlord", Component: SignupLandlord },
 
-      // Protected routes — require authentication
+      // Protected routes - Require authentication AND show Layout UI
       {
-        Component: ProtectedRoute,
+        Component: ProtectedLayout,
         children: [
           { path: "onboarding", Component: TenantOnboarding },
           { path: "swipe", Component: SwipeInterface },
@@ -33,6 +37,7 @@ export const router = createBrowserRouter([
         ],
       },
 
+      // Fallback route
       { path: "*", Component: Landing },
     ],
   },

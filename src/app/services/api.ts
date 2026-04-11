@@ -28,4 +28,38 @@ api.interceptors.response.use(
   },
 );
 
+export const getMatchExplanation = async (userId: string, propertyId: string) => {
+  const response = await api.get(`/matching/explain-property/${userId}/${propertyId}`);
+  return response.data;
+};
+
+export const getPropertyById = async (propertyId: string) => {
+  const response = await api.get(`/properties/${propertyId}`);
+  return response.data;
+};
+
+export const addInterest = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/interest`);
+};
+
+export const removeInterest = async (propertyId: string) => {
+  return api.delete(`/properties/${propertyId}/interest`);
+};
+
+export const addDislike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/dislike`);
+};
+
+export const removeDislike = async (propertyId: string) => {
+  return api.delete(`/properties/${propertyId}/dislike`);
+};
+
+export const superLike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/super-like`);
+};
+
+export const refreshSuperLike = async (propertyId: string) => {
+  return api.post(`/properties/${propertyId}/super-like/refresh`);
+};
+
 export default api;

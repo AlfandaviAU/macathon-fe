@@ -27,6 +27,8 @@ interface FrontCardHandle {
   flyOut: (dir: "left" | "right") => void;
 }
 
+const PROPERTY_PLACEHOLDER = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000";
+
 export function SwipeInterface() {
   const { user } = useApp();
   const navigate = useNavigate();
@@ -123,10 +125,10 @@ export function SwipeInterface() {
   return (
     <div className="px-4 pt-4 max-w-lg mx-auto pb-6">
       <div className="flex items-center justify-between mb-4">
-        <h2>Discover</h2>
+        <h2 className="text-2xl font-black tracking-tight">Discover</h2>
         <button
           onClick={() => { if (!showFilters && hasActiveFilters) setPendingFilters({ maxPrice: filters.maxPrice ?? 2000, radius: filters.radius ?? 20 }); setShowFilters(!showFilters); }}
-          className={`p-2 rounded-lg border relative ${showFilters ? "bg-primary text-primary-foreground border-primary" : hasActiveFilters ? "border-primary text-primary" : "border-border"}`}
+          className={`p-2 rounded-lg border relative transition-all ${showFilters ? "bg-primary text-primary-foreground border-primary" : hasActiveFilters ? "border-primary text-primary" : "border-border hover:bg-muted"}`}
         >
           <SlidersHorizontal className="w-5 h-5" />
           {hasActiveFilters && !showFilters && (
@@ -136,22 +138,22 @@ export function SwipeInterface() {
       </div>
 
       {showFilters && (
-        <div className="bg-card rounded-xl border border-border p-4 mb-4 space-y-4">
+        <div className="bg-card rounded-xl border border-border p-4 mb-4 space-y-4 shadow-sm">
           <div>
-            <label className="text-[0.8rem] text-muted-foreground block mb-2">Max price (per week): ${pendingFilters.maxPrice}</label>
+            <label className="text-[0.8rem] font-bold uppercase tracking-widest text-muted-foreground block mb-2">Max price (per week): ${pendingFilters.maxPrice}</label>
             <input type="range" min={50} max={2000} step={50} value={pendingFilters.maxPrice}
               onChange={(e) => setPendingFilters({ ...pendingFilters, maxPrice: +e.target.value })} className="w-full accent-primary" />
           </div>
           <div>
-            <label className="text-[0.8rem] text-muted-foreground block mb-2">Max distance: {pendingFilters.radius}km</label>
+            <label className="text-[0.8rem] font-bold uppercase tracking-widest text-muted-foreground block mb-2">Max distance: {pendingFilters.radius}km</label>
             <input type="range" min={1} max={50} value={pendingFilters.radius}
               onChange={(e) => setPendingFilters({ ...pendingFilters, radius: +e.target.value })} className="w-full accent-primary" />
           </div>
           <div className="flex gap-2">
             {hasActiveFilters && (
-              <button onClick={clearFilters} className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-xl text-[0.85rem] font-medium">Clear</button>
+              <button onClick={clearFilters} className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-xl text-[0.85rem] font-black uppercase tracking-wider">Clear</button>
             )}
-            <button onClick={applyFilters} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-xl text-[0.85rem] font-medium">Apply filters</button>
+            <button onClick={applyFilters} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-xl text-[0.85rem] font-black uppercase tracking-wider">Apply filters</button>
           </div>
         </div>
       )}
@@ -159,12 +161,12 @@ export function SwipeInterface() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground text-[0.85rem]">Finding your best matches...</p>
+          <p className="text-muted-foreground font-bold uppercase tracking-widest text-[0.7rem]">Finding your best matches...</p>
         </div>
       ) : error ? (
         <div className="text-center py-20">
-          <p className="text-destructive mb-4">{error}</p>
-          <button onClick={fetchProperties} className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-[0.85rem]">Retry</button>
+          <p className="text-destructive mb-4 font-bold">{error}</p>
+          <button onClick={fetchProperties} className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-[0.85rem] font-black uppercase">Retry</button>
         </div>
       ) : visibleStack.length > 0 ? (
         <div>
@@ -193,7 +195,7 @@ export function SwipeInterface() {
               return (
                 <motion.div
                   key={prop.id}
-                  className="absolute inset-0 rounded-2xl overflow-hidden"
+                  className="absolute inset-0 rounded-3xl overflow-hidden shadow-2xl"
                   style={{ zIndex: 3 - stackIdx, transformOrigin: "center bottom" }}
                   animate={{
                     scale: swiping && stackIdx === 1 ? 1 : 1 - stackIdx * 0.045,
@@ -210,31 +212,31 @@ export function SwipeInterface() {
           </div>
 
           {/* Action buttons — stationary, outside the stack */}
-          <div className="flex justify-center gap-8 mt-5">
+          <div className="flex justify-center gap-8 mt-8">
             <button
               onClick={() => triggerSwipe("left")}
               disabled={swiping}
-              className="w-16 h-16 rounded-full border-2 border-red-200 bg-card flex items-center justify-center hover:border-red-400 hover:shadow-lg active:scale-90 transition-all shadow-sm disabled:opacity-50"
+              className="w-20 h-20 rounded-full border-2 border-border bg-card flex items-center justify-center hover:border-red-500 hover:shadow-xl hover:shadow-red-500/10 active:scale-90 transition-all shadow-lg disabled:opacity-50 group"
             >
-              <X className="w-7 h-7 text-red-400" />
+              <X className="w-8 h-8 text-muted-foreground group-hover:text-red-500 transition-colors" />
             </button>
             <button
               onClick={() => triggerSwipe("right")}
               disabled={swiping}
-              className="w-16 h-16 rounded-full border-2 border-green-200 bg-card flex items-center justify-center hover:border-green-400 hover:shadow-lg active:scale-90 transition-all shadow-sm disabled:opacity-50"
+              className="w-20 h-20 rounded-full border-2 border-border bg-card flex items-center justify-center hover:border-primary hover:shadow-xl hover:shadow-primary/10 active:scale-90 transition-all shadow-lg disabled:opacity-50 group"
             >
-              <Heart className="w-7 h-7 text-green-400" />
+              <Heart className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors fill-transparent group-hover:fill-primary/10" />
             </button>
           </div>
         </div>
       ) : (
         <div className="text-center py-20">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <MapPin className="w-8 h-8 text-muted-foreground" />
+          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+            <MapPin className="w-10 h-10 text-muted-foreground" />
           </div>
-          <h3 className="mb-2">No more properties</h3>
-          <p className="text-muted-foreground text-[0.85rem] mb-4">Check back later or adjust your filters.</p>
-          <button onClick={fetchProperties} className="bg-secondary text-secondary-foreground px-6 py-2.5 rounded-xl text-[0.85rem]">Refresh</button>
+          <h3 className="text-xl font-black mb-2">No more properties</h3>
+          <p className="text-muted-foreground text-[0.85rem] mb-6 font-medium">Check back later or adjust your filters.</p>
+          <button onClick={fetchProperties} className="bg-secondary text-secondary-foreground px-8 py-3 rounded-2xl text-[0.85rem] font-black uppercase tracking-widest hover:bg-secondary/80 transition-all">Refresh</button>
         </div>
       )}
     </div>
@@ -247,14 +249,14 @@ function StackCard({ property }: { property: MatchedProperty }) {
   const images = property.images?.length ? property.images : [];
   return (
     <div className="relative w-full h-full bg-muted shadow-lg">
-      {images.length > 0 ? (
-        <ImageWithFallback src={images[0]} alt={property.address} className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-muted-foreground">No images</div>
-      )}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 pt-10">
-        <p className="text-white/60 text-[0.75rem] flex items-center gap-1">
-          <MapPin className="w-3 h-3" /> {property.address}
+      <ImageWithFallback 
+        src={images.length > 0 ? images[0] : PROPERTY_PLACEHOLDER} 
+        alt={property.address} 
+        className="w-full h-full object-cover" 
+      />
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 pt-20">
+        <p className="text-white font-black text-[0.85rem] flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-primary" /> {property.address.split(',')[0]}
         </p>
       </div>
     </div>
@@ -313,18 +315,18 @@ const FrontCard = forwardRef<FrontCardHandle, {
       dragElastic={0.8}
       onDragEnd={handleDragEnd}
     >
-      <div className="relative rounded-2xl overflow-hidden w-full h-full bg-muted shadow-2xl ring-1 ring-black/5">
-        {images.length > 0 ? (
-          <ImageWithFallback src={images[imgIdx] || images[0]} alt={property.address} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">No images</div>
-        )}
+      <div className="relative rounded-[2.5rem] overflow-hidden w-full h-full bg-muted shadow-2xl ring-1 ring-black/5">
+        <ImageWithFallback 
+          src={images.length > 0 ? (images[imgIdx] || images[0]) : PROPERTY_PLACEHOLDER} 
+          alt={property.address} 
+          className="w-full h-full object-cover select-none" 
+        />
 
         {/* Image dots */}
         {images.length > 1 && (
-          <div className="absolute top-3 left-0 right-0 flex justify-center gap-1 z-10">
+          <div className="absolute top-5 left-0 right-0 flex justify-center gap-1.5 z-10">
             {images.map((_, i) => (
-              <div key={i} className={`h-1 rounded-full transition-all ${i === imgIdx ? "w-6 bg-white" : "w-1.5 bg-white/50"}`} />
+              <div key={i} className={`h-1.5 rounded-full transition-all shadow-sm ${i === imgIdx ? "w-8 bg-white" : "w-2 bg-white/40"}`} />
             ))}
           </div>
         )}
@@ -336,32 +338,32 @@ const FrontCard = forwardRef<FrontCardHandle, {
         </div>
 
         {/* Swipe labels */}
-        <motion.div className="absolute top-10 left-6 border-4 border-red-500 rounded-xl px-5 py-2 -rotate-12 z-20 bg-red-500/10 backdrop-blur-sm" style={{ opacity: leftOpacity }}>
-          <span className="text-red-500 text-[1.5rem]" style={{ fontWeight: 800 }}>NOPE</span>
+        <motion.div className="absolute top-12 left-8 border-4 border-red-500 rounded-2xl px-6 py-2 -rotate-12 z-20 bg-red-500/10 backdrop-blur-md" style={{ opacity: leftOpacity }}>
+          <span className="text-red-500 text-[2rem] font-black tracking-tighter">NOPE</span>
         </motion.div>
-        <motion.div className="absolute top-10 right-6 border-4 border-green-500 rounded-xl px-5 py-2 rotate-12 z-20 bg-green-500/10 backdrop-blur-sm" style={{ opacity: rightOpacity }}>
-          <span className="text-green-500 text-[1.5rem]" style={{ fontWeight: 800 }}>LIKE</span>
+        <motion.div className="absolute top-12 right-8 border-4 border-primary rounded-2xl px-6 py-2 rotate-12 z-20 bg-primary/10 backdrop-blur-md" style={{ opacity: rightOpacity }}>
+          <span className="text-primary text-[2rem] font-black tracking-tighter">LIKE</span>
         </motion.div>
 
         {/* Match score badge */}
-        <div className="absolute top-3 right-3 z-10 bg-black/50 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-          <span className="text-white text-[0.8rem]" style={{ fontWeight: 700 }}>{matchPct}%</span>
+        <div className="absolute top-5 right-5 z-10 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-2 flex items-center gap-2 shadow-2xl">
+          <Sparkles className="w-4 h-4 text-yellow-400 fill-current" />
+          <span className="text-white text-[0.9rem] font-black">{matchPct}% Match</span>
         </div>
 
         {/* Bottom info overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-5 pt-24">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/100 via-black/60 to-transparent p-8 pt-32">
           {/* Tags */}
           {(property.matching_tags?.length > 0 || property.unmatching_tags?.length > 0) && (
-            <div className="flex flex-wrap gap-1.5 mb-2.5">
+            <div className="flex flex-wrap gap-2 mb-4">
               {property.matching_tags?.slice(0, 3).map((tag) => (
-                <span key={tag} className="px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-[0.7rem] flex items-center gap-1">
-                  <ThumbsUp className="w-2.5 h-2.5" /> {tag}
+                <span key={tag} className="px-3 py-1.5 rounded-xl bg-primary/20 border border-primary/30 text-white text-[0.7rem] font-black uppercase tracking-widest flex items-center gap-1.5 backdrop-blur-md">
+                  <ThumbsUp className="w-3 h-3 text-primary fill-current" /> {tag}
                 </span>
               ))}
               {property.unmatching_tags?.slice(0, 2).map((tag) => (
-                <span key={tag} className="px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/30 text-red-300 text-[0.7rem] flex items-center gap-1">
-                  <ThumbsDown className="w-2.5 h-2.5" /> {tag}
+                <span key={tag} className="px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white text-[0.7rem] font-black uppercase tracking-widest flex items-center gap-1.5 backdrop-blur-md">
+                  <ThumbsDown className="w-3 h-3 text-white/60" /> {tag}
                 </span>
               ))}
             </div>
@@ -369,41 +371,43 @@ const FrontCard = forwardRef<FrontCardHandle, {
 
           {/* Distance */}
           {shortestTravel && (
-            <div className="flex items-center gap-1.5 text-white/70 text-[0.75rem] mb-2">
-              <Navigation className="w-3 h-3" />
-              <span>{shortestTravel.dist} · {shortestTravel.time}</span>
+            <div className="flex items-center gap-2 text-white/80 text-[0.8rem] mb-3 font-bold uppercase tracking-wider">
+              <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Navigation className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <span>{shortestTravel.dist} · {shortestTravel.time} commute</span>
             </div>
           )}
 
           {/* Address & pricing */}
-          <div className="flex items-end justify-between">
+          <div className="flex items-end justify-between border-t border-white/10 pt-6">
             <div className="min-w-0 flex-1">
-              <p className="text-white/60 text-[0.75rem] flex items-center gap-1 mb-1 truncate">
-                <MapPin className="w-3 h-3 shrink-0" /> {property.address}
+              <p className="text-white/60 text-[0.8rem] font-bold flex items-center gap-1.5 mb-2 truncate">
+                <MapPin className="w-4 h-4 text-primary shrink-0" /> {property.address}
               </p>
               <div className="flex items-baseline gap-2">
-                <span className="text-white text-[1.75rem]" style={{ fontWeight: 800 }}>${minPrice}</span>
-                <span className="text-white/50 text-[0.8rem]">/wk min</span>
+                <span className="text-white text-[2.5rem] font-black tracking-tighter leading-none">${minPrice}</span>
+                <span className="text-white/40 text-sm font-bold uppercase tracking-widest">/wk min</span>
               </div>
               {currentTenants > 0 && (
-                <p className="text-white/70 text-[0.8rem]">
-                  Now <span style={{ fontWeight: 600 }} className="text-white/90">${currentPrice}/wk</span>
+                <p className="text-primary text-[0.85rem] font-black mt-1 uppercase tracking-widest">
+                  Current Match: ${currentPrice}pw
                 </p>
               )}
             </div>
-            <div className="text-right shrink-0 ml-3">
-              <div className="flex items-center gap-1 text-white/80 text-[0.8rem] mb-1">
-                <Users className="w-3.5 h-3.5" />
+            <div className="text-right shrink-0 ml-4">
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-xl px-3 py-1.5 text-white text-[0.8rem] font-black mb-3 border border-white/10">
+                <Users className="w-4 h-4 text-primary" />
                 {property.occupancy}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3 justify-end">
                 {[
                   { icon: Bed, val: property.bedrooms },
                   { icon: Bath, val: property.bathrooms },
                   { icon: Car, val: property.garages },
                 ].map(({ icon: Icon, val }, i) => (
-                  <div key={i} className="flex items-center gap-0.5 text-white/60 text-[0.75rem]">
-                    <Icon className="w-3.5 h-3.5" /> {val}
+                  <div key={i} className="flex items-center gap-1 text-white/60 text-[0.85rem] font-bold">
+                    <Icon className="w-4 h-4" /> {val}
                   </div>
                 ))}
               </div>
