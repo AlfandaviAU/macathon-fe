@@ -45,36 +45,37 @@ export function SignupLandlord() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#faf9f7] text-[#1a1a2e] overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#030303] text-white overflow-hidden">
       {/* Background decoration */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
-        <div className="absolute top-[-10%] left-[-20%] w-[60%] h-[60%] bg-blue-600/5 rounded-full blur-[140px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-[#e8553d]/5 rounded-full blur-[120px]" />
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-20">
+        <div className="absolute inset-0 opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
+        <div className="absolute top-[-10%] left-[-20%] w-[60%] h-[60%] bg-[#e8553d]/15 rounded-full blur-[140px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-[#e8553d]/10 rounded-full blur-[120px]" />
       </div>
 
       <div className="w-full max-w-xl relative z-10 flex flex-col items-center">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-[#1a1a2e]/40 hover:text-[#1a1a2e] transition-colors mb-8 group self-start"
+          className="flex items-center gap-2 text-white/40 hover:text-white transition-colors mb-8 group self-start"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           <span className="text-sm font-bold uppercase tracking-widest">Back to Home</span>
         </button>
 
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6 backdrop-blur-md text-blue-600">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#e8553d]/10 border border-[#e8553d]/20 mb-6 backdrop-blur-md text-[#e8553d]">
             <Building2 className="w-4 h-4" />
             <span className="text-[10px] font-black tracking-[0.2em] uppercase">Partner with Dwllr.ai</span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-4 italic text-[#1a1a2e]">
-            Create <span className="text-blue-600">Landlord</span> Account.
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter leading-none mb-4 italic text-white">
+            Create <span className="text-[#e8553d]">Landlord</span> Account.
           </h1>
-          <p className="text-[#1a1a2e]/40 text-lg font-medium max-w-md mx-auto">List your property and find high-compatibility tenant tribes automatically.</p>
+          <p className="text-white/40 text-lg font-medium max-w-md mx-auto">List your property and find high-compatibility tenant tribes automatically.</p>
         </div>
 
-        <div className="w-full bg-white rounded-[3rem] border border-black/[0.05] p-10 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.04)] relative">
+        <div className="w-full bg-white/[0.02] backdrop-blur-3xl rounded-[3rem] border border-white/10 p-10 md:p-12 shadow-2xl relative">
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 text-[13px] font-bold px-4 py-3 rounded-2xl mb-8 flex items-center gap-3">
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[13px] font-bold px-4 py-3 rounded-2xl mb-8 flex items-center gap-3">
               <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
               {error}
             </div>
@@ -82,13 +83,13 @@ export function SignupLandlord() {
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 md:col-span-1">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1a1a2e]/40 ml-1 flex items-center gap-2">
-                <User className="w-3 h-3 text-blue-600" /> Full Name
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1 flex items-center gap-2">
+                <User className="w-3 h-3 text-[#e8553d]" /> Full Name
               </label>
               <input
                 type="text"
                 required
-                className="w-full px-5 py-4 rounded-2xl bg-[#f5f4f2] border border-transparent focus:bg-white focus:border-blue-500/30 text-[#1a1a2e] placeholder:text-[#1a1a2e]/20 focus:outline-none transition-all font-medium"
+                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="John Doe"
@@ -96,13 +97,13 @@ export function SignupLandlord() {
             </div>
 
             <div className="space-y-2 md:col-span-1">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1a1a2e]/40 ml-1 flex items-center gap-2">
-                <Phone className="w-3 h-3 text-blue-600" /> Phone Number
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1 flex items-center gap-2">
+                <Phone className="w-3 h-3 text-[#e8553d]" /> Phone Number
               </label>
               <input
                 type="tel"
                 required
-                className="w-full px-5 py-4 rounded-2xl bg-[#f5f4f2] border border-transparent focus:bg-white focus:border-blue-500/30 text-[#1a1a2e] placeholder:text-[#1a1a2e]/20 focus:outline-none transition-all font-medium"
+                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 placeholder="04XX XXX XXX"
@@ -110,13 +111,13 @@ export function SignupLandlord() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1a1a2e]/40 ml-1 flex items-center gap-2">
-                <Mail className="w-3 h-3 text-blue-600" /> Email Address
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1 flex items-center gap-2">
+                <Mail className="w-3 h-3 text-[#e8553d]" /> Email Address
               </label>
               <input
                 type="email"
                 required
-                className="w-full px-5 py-4 rounded-2xl bg-[#f5f4f2] border border-transparent focus:bg-white focus:border-blue-500/30 text-[#1a1a2e] placeholder:text-[#1a1a2e]/20 focus:outline-none transition-all font-medium"
+                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="landlord@company.com"
@@ -124,14 +125,14 @@ export function SignupLandlord() {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-[#1a1a2e]/40 ml-1 flex items-center gap-2">
-                <Lock className="w-3 h-3 text-blue-600" /> Password
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1 flex items-center gap-2">
+                <Lock className="w-3 h-3 text-[#e8553d]" /> Password
               </label>
               <div className="relative">
                 <input
                   type={showPw ? "text" : "password"}
                   required
-                  className="w-full px-5 py-4 rounded-2xl bg-[#f5f4f2] border border-transparent focus:bg-white focus:border-blue-500/30 text-[#1a1a2e] placeholder:text-[#1a1a2e]/20 focus:outline-none transition-all font-medium pr-12"
+                  className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium pr-12"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Min 8 characters"
@@ -139,7 +140,7 @@ export function SignupLandlord() {
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#1a1a2e]/20 hover:text-[#1a1a2e] transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors"
                 >
                   {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -149,7 +150,7 @@ export function SignupLandlord() {
             <Button
               type="submit"
               disabled={submitting}
-              className="w-full md:col-span-2 bg-blue-600 hover:bg-blue-700 text-white py-8 rounded-2xl font-black text-lg shadow-xl shadow-blue-500/20 transition-all flex items-center justify-center gap-3 border-none mt-4"
+              className="w-full md:col-span-2 bg-[#e8553d] hover:bg-[#ff6b54] text-white py-8 rounded-2xl font-black text-lg shadow-xl shadow-[#e8553d]/20 transition-all flex items-center justify-center gap-3 border-none mt-4"
             >
               {submitting ? (
                 <Loader2 className="w-6 h-6 animate-spin" />
@@ -159,9 +160,9 @@ export function SignupLandlord() {
             </Button>
           </form>
 
-          <div className="mt-12 pt-8 border-t border-black/[0.05] text-center flex flex-col sm:flex-row justify-center items-center gap-4">
-             <p className="text-[#1a1a2e]/40 text-[13px] font-medium">Already have an account?</p>
-             <Link to="/login" className="px-6 py-2.5 bg-black/[0.03] border border-black/[0.05] rounded-full text-[#1a1a2e] font-black uppercase tracking-widest text-[10px] hover:bg-black/[0.05] transition-all">
+          <div className="mt-12 pt-8 border-t border-white/5 text-center flex flex-col sm:flex-row justify-center items-center gap-4">
+             <p className="text-white/40 text-[13px] font-medium">Already have an account?</p>
+             <Link to="/login" className="px-6 py-2.5 bg-white/5 border border-white/10 rounded-full text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">
                 Log In Instead
              </Link>
           </div>
