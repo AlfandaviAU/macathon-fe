@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useApp, User } from "../store";
-import { Home, Eye, EyeOff } from "lucide-react";
+import { useApp } from "../store";
+import { Home, Eye, EyeOff, Loader2 } from "lucide-react";
+import { api, setToken } from "../../lib/api";
+
+interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user_id: string;
+  role: string;
+}
 
 export function Auth() {
   const [searchParams] = useSearchParams();
@@ -9,30 +17,48 @@ export function Auth() {
   const [isSignUp, setIsSignUp] = useState(true);
   const [showPw, setShowPw] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const { setUser } = useApp();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useApp();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newUser: User = {
-      id: typeParam === "landlord" ? "l1" : "current-tenant",
-      name: form.name || "Demo User",
-      email: form.email || "demo@dwllr.com",
-      phone: form.phone || "0400000000",
-      photo: "",
-      bio: "",
-      type: typeParam || "tenant",
-      onboarded: typeParam === "landlord",
-      personalityAnswers: [],
-      choreAnswers: [],
-      livelinessVerified: typeParam === "landlord",
-      lastSuperInterestTime: null,
-    };
-    setUser(newUser);
-    if (typeParam === "tenant") {
-      navigate("/onboarding");
-    } else {
-      navigate("/landlord");
+    setError("");
+    setLoading(true);
+
+    try {
+      let auth: AuthResponse;
+
+      if (isSignUp) {
+        auth = await api.post<AuthResponse>("/auth/register", {
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          password: form.password,
+          role: typeParam || "tenant",
+        });
+      } else {
+        auth = await api.post<AuthResponse>("/auth/login", {
+          email: form.email,
+          password: form.password,
+        });
+      }
+
+      setToken(auth.access_token);
+      const me = await api.get<any>("/users/me");
+      login(auth.access_token, me);
+
+      if (me.role === "tenant") {
+        const hasQuiz = me.raw_quiz_results && Object.keys(me.raw_quiz_results).length > 0;
+        navigate(hasQuiz ? "/swipe" : "/onboarding");
+      } else {
+        navigate("/landlord");
+      }
+    } catch (err: any) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -52,6 +78,12 @@ export function Auth() {
             {typeParam === "landlord" ? "Landlord account" : "Tenant account"}
           </p>
 
+          {error && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive text-[0.8rem] rounded-lg px-3 py-2 mb-4">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {isSignUp && (
               <div>
@@ -62,6 +94,7 @@ export function Auth() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Your full name"
+                  required
                 />
               </div>
             )}
@@ -73,6 +106,7 @@ export function Auth() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="you@email.com"
+                required
               />
             </div>
             {isSignUp && (
@@ -84,6 +118,7 @@ export function Auth() {
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="04XX XXX XXX"
+                  required
                 />
               </div>
             )}
@@ -96,20 +131,27 @@ export function Auth() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Min 8 characters"
+                  required
+                  minLength={8}
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-            <button type="submit" className="w-full bg-primary text-primary-foreground py-3 rounded-xl hover:opacity-90 transition">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground py-3 rounded-xl hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {isSignUp ? "Sign up" : "Log in"}
             </button>
           </form>
 
           <p className="text-center text-[0.8rem] text-muted-foreground mt-4">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-primary hover:underline">
+            <button onClick={() => { setIsSignUp(!isSignUp); setError(""); }} className="text-primary hover:underline">
               {isSignUp ? "Log in" : "Sign up"}
             </button>
           </p>

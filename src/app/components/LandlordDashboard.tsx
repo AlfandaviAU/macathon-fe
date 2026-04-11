@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { useApp, Property } from "../store";
 import { useNavigate } from "react-router";
-import { Plus, Bed, Bath, Users, MapPin, X, Heart, Car, Calendar, Landmark, ArrowRight } from "lucide-react";
+import { Plus, Bed, Bath, Users, MapPin, X, Heart, Car, Landmark, ArrowRight, RefreshCw, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-
-const API_URL = "http://127.0.0.1:8000";
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NTAxNjJkYy05YzJiLTQ3YjktYmFhNC04NDFhYzU4NjcxZTgiLCJyb2xlIjoibGFuZGxvcmQiLCJleHAiOjE3NzU5NTk0Mjd9.DDbfeIwmcSXLwg-Lw0FNvZjnFziAi3Bns8BbJs8EzDk";
+import { api } from "../../lib/api";
 
 const PREFERENCE_OPTIONS = [
   "Tidy", "Non-smoker", "Quiet after 10pm", "Pet-friendly",
@@ -20,6 +18,7 @@ const BLANK_FORM = {
   price: 500,
   max_tenants: 2,
   expiry_date: "2026-08-01",
+  description: "",
 };
 
 export function LandlordDashboard() {
@@ -30,35 +29,13 @@ export function LandlordDashboard() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ ...BLANK_FORM });
   const [selectedPrefs, setSelectedPrefs] = useState<string[]>([]);
-
-  const mapApiToProperty = (apiData: any): Property => ({
-    id: apiData.id,
-    landlordId: apiData.landlord_id,
-    address: apiData.address,
-    images: apiData.images?.length > 0 ? apiData.images : ["https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"],
-    bedrooms: apiData.bedrooms,
-    bathrooms: apiData.bathrooms,
-    garages: apiData.garages,
-    weeklyPrice: apiData.price,
-    currentTenants: apiData.current_tenants || 0,
-    maxTenants: apiData.max_tenants,
-    expiryDate: apiData.expiry_date || "N/A",
-    tenantPreferences: apiData.tenant_preferences || [],
-    matchedTenants: apiData.approved_user_ids || [],
-    interestedTenants: apiData.interested_user_ids || [],
-    active: apiData.status === "available",
-    superLiked: apiData.super_liked_user_ids?.length > 0
-  });
+  const [images, setImages] = useState<File[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const fetchProperties = async () => {
     try {
-      const response = await fetch(`${API_URL}/properties/`, {
-        headers: { 'Authorization': `Bearer ${BEARER_TOKEN}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setProperties(data.map(mapApiToProperty));
-      }
+      const data = await api.get<Property[]>("/properties/");
+      setProperties(data);
     } catch (error) {
       console.error("Fetch error:", error);
     } finally {
@@ -68,32 +45,44 @@ export function LandlordDashboard() {
 
   useEffect(() => {
     fetchProperties();
-  }, [setProperties]);
+  }, []);
 
   const handleCreate = async () => {
+    setCreating(true);
     try {
-      const response = await fetch(`${API_URL}/properties/`, {
-        method: "POST",
-        headers: {
-          'Authorization': `Bearer ${BEARER_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...form,
-          tenant_preferences: selectedPrefs,
-          status: "available",
-          images: ["https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"]
-        })
-      });
-
-      if (response.ok) {
-        setShowForm(false);
-        setForm({ ...BLANK_FORM });
-        setSelectedPrefs([]);
-        fetchProperties();
+      let imageUrls: string[] = [];
+      if (images.length > 0) {
+        const uploaded = await api.upload<{ urls: string[] }>("/storage/upload", images, "files");
+        imageUrls = uploaded.urls;
       }
+      if (imageUrls.length === 0) {
+        imageUrls = ["https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"];
+      }
+
+      await api.post("/properties/", {
+        ...form,
+        tenant_preferences: selectedPrefs,
+        status: "available",
+        images: imageUrls,
+      });
+      setShowForm(false);
+      setForm({ ...BLANK_FORM });
+      setSelectedPrefs([]);
+      setImages([]);
+      fetchProperties();
     } catch (error) {
       console.error("Create error:", error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleRefreshExpiry = async (propertyId: string) => {
+    try {
+      await api.post(`/properties/${propertyId}/refresh-expiry`);
+      fetchProperties();
+    } catch (error) {
+      console.error("Refresh error:", error);
     }
   };
 
@@ -116,7 +105,6 @@ export function LandlordDashboard() {
 
   return (
       <div className="px-4 pt-6 max-w-lg mx-auto pb-20 bg-background min-h-screen">
-        {/* Header Section */}
         <div className="flex flex-col gap-1 mb-6">
           <p className="text-xs font-bold uppercase tracking-wider text-primary/60">Manage Assets</p>
           <div className="flex items-center justify-between">
@@ -135,7 +123,6 @@ export function LandlordDashboard() {
           </div>
         </div>
 
-        {/* Modern Create Form */}
         {showForm && (
             <div className="bg-card rounded-3xl border border-border p-5 mb-8 space-y-5 shadow-xl animate-in fade-in zoom-in-95 duration-300">
               <div className="space-y-1">
@@ -155,6 +142,16 @@ export function LandlordDashboard() {
                         placeholder="Enter property address..."
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Description</label>
+                  <textarea
+                    className="w-full px-4 py-3 rounded-2xl bg-muted/30 border border-transparent focus:border-primary/50 focus:bg-background transition-all outline-none text-sm min-h-[80px] resize-none"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="Describe the property..."
+                  />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -200,6 +197,20 @@ export function LandlordDashboard() {
                 </div>
 
                 <div>
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Property Images</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setImages(Array.from(e.target.files || []))}
+                    className="w-full px-3 py-2.5 rounded-xl bg-muted/30 border border-transparent text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:text-primary-foreground file:px-3 file:py-1 file:text-xs file:font-bold"
+                  />
+                  {images.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1 ml-1">{images.length} file(s) selected</p>
+                  )}
+                </div>
+
+                <div>
                   <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-2 block">Ideal Tenant Preferences</label>
                   <div className="flex flex-wrap gap-1.5">
                     {PREFERENCE_OPTIONS.map(pref => (
@@ -220,9 +231,10 @@ export function LandlordDashboard() {
 
                 <button
                     onClick={handleCreate}
-                    disabled={!form.address}
+                    disabled={!form.address || creating}
                     className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-bold text-sm shadow-lg shadow-primary/20 disabled:opacity-50 active:scale-95 transition-transform flex items-center justify-center gap-2 mt-2"
                 >
+                  {creating && <Loader2 size={16} className="animate-spin" />}
                   Publish Listing
                   <ArrowRight size={16} />
                 </button>
@@ -230,9 +242,10 @@ export function LandlordDashboard() {
             </div>
         )}
 
-        {/* Property List Section */}
         <div className="space-y-4">
-          {myProperties.map((p) => (
+          {myProperties.map((p) => {
+            const isExpired = new Date(p.expiry_date) < new Date();
+            return (
               <div
                   key={p.id}
                   className="group bg-card rounded-[2rem] border border-border p-3 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 active:scale-[0.98]"
@@ -240,11 +253,11 @@ export function LandlordDashboard() {
                 <div className="flex gap-4">
                   <div className="w-28 h-28 shrink-0 relative overflow-hidden rounded-[1.5rem]">
                     <ImageWithFallback
-                        src={p.images[0]}
+                        src={p.images?.[0] || "https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"}
                         alt={p.address}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
-                    {p.superLiked && (
+                    {(p.super_liked_user_ids?.length ?? 0) > 0 && (
                         <div className="absolute top-2 left-2 bg-orange-500 text-white p-1.5 rounded-full shadow-lg">
                           <Heart size={12} className="fill-current" />
                         </div>
@@ -264,14 +277,18 @@ export function LandlordDashboard() {
                           </p>
                         </div>
                         <span className={`px-2 py-1 rounded-lg text-[0.6rem] font-black uppercase tracking-tighter shrink-0 ${
-                            p.active ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                            p.status === "available" && !isExpired
+                              ? "bg-green-100 text-green-700"
+                              : isExpired
+                              ? "bg-red-100 text-red-700"
+                              : "bg-muted text-muted-foreground"
                         }`}>
-                      {p.active ? "Live" : "Draft"}
-                    </span>
+                          {isExpired ? "Expired" : p.status === "available" ? "Live" : "Draft"}
+                        </span>
                       </div>
 
                       <div className="flex items-baseline gap-0.5">
-                        <span className="text-lg font-black tracking-tight">${p.weeklyPrice}</span>
+                        <span className="text-lg font-black tracking-tight">${p.price}</span>
                         <span className="text-[10px] font-medium text-muted-foreground uppercase">/ week</span>
                       </div>
                     </div>
@@ -280,23 +297,32 @@ export function LandlordDashboard() {
                       <span className="flex items-center gap-1"><Bed size={14} className="text-primary/70"/> {p.bedrooms}</span>
                       <span className="flex items-center gap-1"><Bath size={14} className="text-primary/70"/> {p.bathrooms}</span>
                       <span className="flex items-center gap-1 bg-muted/60 px-2 py-0.5 rounded-md">
-                    <Users size={14} /> {p.currentTenants}/{p.maxTenants}
-                  </span>
+                        <Users size={14} /> {p.current_tenants}/{p.max_tenants}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="mt-3 flex gap-2">
                   <button
                       onClick={() => navigate(`/property/${p.id}`)}
-                      className="w-full bg-secondary/50 hover:bg-primary hover:text-primary-foreground text-secondary-foreground py-3 rounded-2xl text-[0.8rem] font-bold transition-all flex items-center justify-center gap-2"
+                      className="flex-1 bg-secondary/50 hover:bg-primary hover:text-primary-foreground text-secondary-foreground py-3 rounded-2xl text-[0.8rem] font-bold transition-all flex items-center justify-center gap-2"
                   >
                     Manage Listing
                     <ArrowRight size={14} />
                   </button>
+                  {isExpired && (
+                    <button
+                        onClick={() => handleRefreshExpiry(p.id)}
+                        className="bg-amber-100 hover:bg-amber-200 text-amber-700 py-3 px-4 rounded-2xl text-[0.8rem] font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw size={14} /> Reactivate
+                    </button>
+                  )}
                 </div>
               </div>
-          ))}
+            );
+          })}
 
           {myProperties.length === 0 && !showForm && (
               <div className="bg-muted/20 border-2 border-dashed border-border rounded-[2.5rem] py-16 flex flex-col items-center justify-center text-center px-6">

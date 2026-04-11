@@ -1,41 +1,105 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp, Property, TenantProfile } from "../store";
 import { useNavigate } from "react-router";
-import { Heart, Star, Clock, Users, MapPin, ChevronRight, XCircle, Undo2 } from "lucide-react";
+import { Heart, Star, Users, MapPin, ChevronRight, XCircle, Undo2, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { api } from "../../lib/api";
 
 export function MatchesDashboard() {
-  const { user, properties, swipes, superInterests, canSuperInterest, addSuperInterest, withdrawInterest, unmatchFromProperty, tenantProfiles } = useApp();
+  const { user } = useApp();
   const navigate = useNavigate();
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [profileCache, setProfileCache] = useState<Record<string, TenantProfile>>({});
 
-  // Properties user swiped right on
-  const rightSwipes = swipes.filter((s) => s.direction === "right").map((s) => s.propertyId);
-  const matchedProperties = properties
-    .filter((p) => rightSwipes.includes(p.id) || p.matchedTenants.includes(user?.id || ""))
-    .sort((a, b) => {
-      const aIntCount = Math.max(a.interestedTenants.length, 1);
-      const bIntCount = Math.max(b.interestedTenants.length, 1);
-      return a.weeklyPrice / aIntCount - b.weeklyPrice / bIntCount;
-    });
+  const fetchMatches = async () => {
+    if (!user) return;
+    try {
+      const all = await api.get<Property[]>("/properties/");
+      const matched = all.filter(
+        (p) =>
+          p.interested_user_ids?.includes(user.id) ||
+          p.approved_user_ids?.includes(user.id)
+      );
+      matched.sort((a, b) => {
+        const aCount = Math.max(a.interested_user_ids?.length || 0, 1);
+        const bCount = Math.max(b.interested_user_ids?.length || 0, 1);
+        return a.price / aCount - b.price / bCount;
+      });
+      setProperties(matched);
 
-  const superInterestIds = superInterests.map((s) => s.propertyId);
-  const canUseSuperInterest = canSuperInterest();
+      const userIds = new Set<string>();
+      matched.forEach((p) => {
+        p.approved_user_ids?.forEach((id) => userIds.add(id));
+      });
+      userIds.delete(user.id);
 
-  // Check archiving logic
+      const profiles: Record<string, TenantProfile> = {};
+      await Promise.allSettled(
+        [...userIds].map(async (id) => {
+          const profile = await api.get<TenantProfile>(`/users/${id}`);
+          profiles[id] = profile;
+        })
+      );
+      setProfileCache(profiles);
+    } catch (err) {
+      console.error("Fetch matches error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMatches();
+  }, [user]);
+
+  const handleSuperLike = async (propertyId: string) => {
+    try {
+      await api.post(`/properties/${propertyId}/super-like`);
+      fetchMatches();
+    } catch (err: any) {
+      console.error("Super like error:", err);
+      alert(err.message || "Cannot super-like right now. You may need to wait 24 hours.");
+    }
+  };
+
+  const handleWithdraw = async (propertyId: string) => {
+    try {
+      await api.post(`/properties/${propertyId}/withdraw`);
+      fetchMatches();
+    } catch (err) {
+      console.error("Withdraw error:", err);
+    }
+  };
+
+  const handleRemoveInterest = async (propertyId: string) => {
+    try {
+      await api.del(`/properties/${propertyId}/interest`);
+      fetchMatches();
+    } catch (err) {
+      console.error("Remove interest error:", err);
+    }
+  };
+
   const now = Date.now();
   const getArchiveStatus = (p: Property) => {
-    const expiryMs = new Date(p.expiryDate).getTime();
-    const isInterested = superInterestIds.includes(p.id);
-    if (isInterested && now > expiryMs + 31 * 24 * 60 * 60 * 1000) return "archived";
-    if (!isInterested && now > expiryMs + 14 * 24 * 60 * 60 * 1000) return "archived";
+    const expiryMs = new Date(p.expiry_date).getTime();
+    const isSuperLiked = p.super_liked_by_me;
+    if (isSuperLiked && now > expiryMs + 31 * 24 * 60 * 60 * 1000) return "archived";
+    if (!isSuperLiked && now > expiryMs + 14 * 24 * 60 * 60 * 1000) return "archived";
     return "active";
   };
 
-  const activeMatches = matchedProperties.filter((p) => getArchiveStatus(p) !== "archived");
+  const activeMatches = properties.filter((p) => getArchiveStatus(p) !== "archived");
 
-  const nextSuperAvailable = superInterests.length > 0
-    ? new Date(superInterests[superInterests.length - 1].timestamp + 72 * 60 * 60 * 1000)
-    : null;
+  if (loading) {
+    return (
+      <div className="px-4 pt-4 max-w-lg mx-auto flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+        <p className="text-muted-foreground text-sm">Loading matches...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 pt-4 max-w-lg mx-auto pb-8">
@@ -43,11 +107,7 @@ export function MatchesDashboard() {
         <h2>Your Matches</h2>
         <div className="flex items-center gap-1 text-[0.75rem] text-muted-foreground">
           <Star className="w-3.5 h-3.5" />
-          {canUseSuperInterest ? (
-            <span className="text-primary">Super Interest available!</span>
-          ) : nextSuperAvailable ? (
-            <span>Resets {nextSuperAvailable.toLocaleDateString()}</span>
-          ) : null}
+          <span className="text-primary">Super Interest</span>
         </div>
       </div>
 
@@ -68,12 +128,11 @@ export function MatchesDashboard() {
             <MatchCard
               key={p.id}
               property={p}
-              isSuperInterested={superInterestIds.includes(p.id)}
-              canSuperInterest={canUseSuperInterest && !superInterestIds.includes(p.id)}
-              onSuperInterest={() => addSuperInterest(p.id)}
-              onWithdrawInterest={() => withdrawInterest(p.id)}
-              onUnmatch={() => unmatchFromProperty(p.id)}
-              tenantProfiles={tenantProfiles}
+              isSuperLiked={p.super_liked_by_me}
+              onSuperLike={() => handleSuperLike(p.id)}
+              onWithdraw={() => handleWithdraw(p.id)}
+              onRemoveInterest={() => handleRemoveInterest(p.id)}
+              profileCache={profileCache}
               onViewDetail={() => navigate(`/property/${p.id}`)}
             />
           ))}
@@ -85,34 +144,38 @@ export function MatchesDashboard() {
 
 function MatchCard({
   property,
-  isSuperInterested,
-  canSuperInterest,
-  onSuperInterest,
-  onWithdrawInterest,
-  onUnmatch,
-  tenantProfiles,
+  isSuperLiked,
+  onSuperLike,
+  onWithdraw,
+  onRemoveInterest,
+  profileCache,
   onViewDetail,
 }: {
   property: Property;
-  isSuperInterested: boolean;
-  canSuperInterest: boolean;
-  onSuperInterest: () => void;
-  onWithdrawInterest: () => void;
-  onUnmatch: () => void;
-  tenantProfiles: TenantProfile[];
+  isSuperLiked: boolean;
+  onSuperLike: () => void;
+  onWithdraw: () => void;
+  onRemoveInterest: () => void;
+  profileCache: Record<string, TenantProfile>;
   onViewDetail: () => void;
 }) {
   const [showActions, setShowActions] = useState(false);
-  const matchedProfiles = tenantProfiles.filter((t) => property.matchedTenants.includes(t.id));
-  const interestedCount = Math.max(property.interestedTenants.length, 1);
-  const effectivePrice = (property.weeklyPrice / interestedCount).toFixed(0);
-  const minPrice = (property.weeklyPrice / property.maxTenants).toFixed(0);
+  const matchedProfiles = (property.approved_user_ids || [])
+    .map((id) => profileCache[id])
+    .filter(Boolean);
+  const interestedCount = Math.max(property.interested_user_ids?.length || 0, 1);
+  const effectivePrice = (property.price / interestedCount).toFixed(0);
+  const minPrice = (property.price / property.max_tenants).toFixed(0);
 
   return (
     <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="flex cursor-pointer" onClick={onViewDetail}>
         <div className="w-28 h-28 shrink-0">
-          <ImageWithFallback src={property.images[0]} alt={property.address} className="w-full h-full object-cover" />
+          <ImageWithFallback
+            src={property.images?.[0] || "https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"}
+            alt={property.address}
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
           <div>
@@ -129,14 +192,17 @@ function MatchCard({
             <div className="flex items-center gap-1">
               <Users className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[0.75rem] text-muted-foreground">
-                {property.matchedTenants.length}/{property.maxTenants} matched
+                {property.current_tenants}/{property.max_tenants} matched
               </span>
             </div>
-            {/* Stacked avatars */}
             <div className="flex -space-x-2">
               {matchedProfiles.slice(0, 3).map((t) => (
                 <div key={t.id} className="w-6 h-6 rounded-full border-2 border-card overflow-hidden">
-                  <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover" />
+                  <ImageWithFallback
+                    src={t.profile_image_url || ""}
+                    alt={t.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               ))}
               {matchedProfiles.length > 3 && (
@@ -149,23 +215,22 @@ function MatchCard({
         </div>
       </div>
 
-      {/* Action buttons row */}
       <div className="px-3 pb-3 space-y-2">
         <div className="flex gap-2">
-          {!isSuperInterested && canSuperInterest && (
+          {!isSuperLiked && (
             <button
-              onClick={onSuperInterest}
+              onClick={onSuperLike}
               className="flex-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white py-2 rounded-lg text-[0.8rem] flex items-center justify-center gap-1"
             >
               <Star className="w-3.5 h-3.5" /> Super Interest
             </button>
           )}
-          {isSuperInterested && (
+          {isSuperLiked && (
             <button
-              onClick={onWithdrawInterest}
+              onClick={onWithdraw}
               className="flex-1 bg-amber-50 text-amber-600 py-2 rounded-lg text-[0.8rem] flex items-center justify-center gap-1 border border-amber-200 hover:bg-amber-100 transition"
             >
-              <Undo2 className="w-3.5 h-3.5" /> Withdraw Interest
+              <Undo2 className="w-3.5 h-3.5" /> Withdraw
             </button>
           )}
           <button
@@ -176,7 +241,6 @@ function MatchCard({
           </button>
         </div>
 
-        {/* Unmatch toggle */}
         {!showActions ? (
           <button
             onClick={() => setShowActions(true)}
@@ -186,9 +250,9 @@ function MatchCard({
           </button>
         ) : (
           <div className="flex items-center gap-2 bg-destructive/5 border border-destructive/20 rounded-lg p-2">
-            <p className="flex-1 text-[0.75rem] text-destructive">Remove this property from your matches?</p>
+            <p className="flex-1 text-[0.75rem] text-destructive">Remove from matches?</p>
             <button
-              onClick={onUnmatch}
+              onClick={onRemoveInterest}
               className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-lg text-[0.75rem] flex items-center gap-1 shrink-0"
             >
               <XCircle className="w-3.5 h-3.5" /> Unmatch
