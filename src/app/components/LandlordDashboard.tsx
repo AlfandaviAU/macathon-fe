@@ -6,7 +6,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL;
-const BEARER_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NTAxNjJkYy05YzJiLTQ3YjktYmFhNC04NDFhYzU4NjcxZTgiLCJyb2xlIjoibGFuZGxvcmQiLCJleHAiOjE3NzU5NTk0Mjd9.DDbfeIwmcSXLwg-Lw0FNvZjnFziAi3Bns8BbJs8EzDk";
+const BEARER_TOKEN = import.meta.env.VITE_BEARER_TOKEN;
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const PREFERENCE_OPTIONS = [
