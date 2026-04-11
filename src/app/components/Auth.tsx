@@ -58,12 +58,14 @@ export function Auth() {
       }
 
       saveAuth(authResponse);
-      await refreshUser();
+      const currentUser = await refreshUser();
 
-      if (authResponse.role === "tenant") {
-        navigate("/onboarding");
-      } else {
+      if (authResponse.role === "landlord") {
         navigate("/landlord");
+      } else if (currentUser && currentUser.onboarded) {
+        navigate("/swipe");
+      } else {
+        navigate("/onboarding");
       }
     } catch (err) {
       const axiosErr = err as AxiosError<{ detail?: string }>;

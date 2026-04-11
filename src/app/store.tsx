@@ -27,7 +27,6 @@ export interface User {
   type: UserType;
   onboarded: boolean;
   onboardingAnswers: Record<string, OnboardingAnswerValue>;
-  livelinessVerified: boolean;
   lastSuperInterestTime: number | null;
 }
 
@@ -43,7 +42,6 @@ function profileToUser(profile: UserProfile): User {
     type: (profile.role as UserType) ?? "tenant",
     onboarded: profile.role === "landlord" || !!hasQuizResults,
     onboardingAnswers: (profile.raw_quiz_results as Record<string, OnboardingAnswerValue>) ?? {},
-    livelinessVerified: profile.role === "landlord" || !!hasQuizResults,
     lastSuperInterestTime: null,
   };
 }
@@ -86,7 +84,7 @@ interface AppState {
   setUser: (u: User | null) => void;
   authLoading: boolean;
   logout: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   properties: Property[];
   setProperties: (p: Property[]) => void;
   swipes: SwipeRecord[];
@@ -122,13 +120,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [swipes, setSwipes] = useState<SwipeRecord[]>([]);
   const [superInterests, setSuperInterests] = useState<{ propertyId: string; timestamp: number }[]>([]);
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
       const profile = await getMe();
-      setUser(profileToUser(profile));
+      const u = profileToUser(profile);
+      setUser(u);
+      return u;
     } catch {
       clearAuth();
       setUser(null);
+      return null;
     }
   }, []);
 

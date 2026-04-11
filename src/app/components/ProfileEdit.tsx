@@ -104,30 +104,18 @@ export function ProfileEdit() {
               <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>{TENANT_ONBOARDING_QUESTIONS.length}</div>
               <div className="text-[0.7rem] text-muted-foreground">Total questions</div>
             </div>
-            <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>
-                {user.livelinessVerified ? "Yes" : "No"}
-              </div>
-              <div className="text-[0.7rem] text-muted-foreground">Verified</div>
-            </div>
-            <div className="bg-muted/50 rounded-lg p-3 text-center">
-              <div className="text-[1.25rem]" style={{ fontWeight: 700 }}>Active</div>
-              <div className="text-[0.7rem] text-muted-foreground">Account status</div>
-            </div>
           </div>
 
-          {/* Recalibrate onboarding */}
           <div className="mt-4 pt-4 border-t border-border">
             <h4 className="text-[0.85rem] mb-1">Recalibrate your profile</h4>
             <p className="text-[0.8rem] text-muted-foreground mb-3">
-              Redo liveliness verification and the profile questionnaire to refresh your matching preferences.
+              Retake the profile questionnaire to refresh your matching preferences.
             </p>
             <button
               onClick={() => {
                 setUser({
                   ...user,
                   onboarded: false,
-                  livelinessVerified: false,
                   onboardingAnswers: {},
                 });
                 navigate("/onboarding");

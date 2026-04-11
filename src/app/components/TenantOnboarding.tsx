@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { useApp } from "../store";
-import { Camera, CheckCircle2, ChevronRight, Shield, MapPin, Loader2, ChevronLeft } from "lucide-react";
+import { CheckCircle2, MapPin, Loader2, ChevronLeft } from "lucide-react";
 import axios from "axios";
+import { getSavedToken } from "../services/auth";
 
 // --- Constants & Types ---
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -56,16 +57,14 @@ function isValidAnswer(q: OnboardingQuestion, v: any): boolean {
 }
 
 export function TenantOnboarding() {
-  const { user, setUser, token } = useApp();
+  const { user, setUser } = useApp();
   const navigate = useNavigate();
 
-  const [stage, setStage] = useState<"liveliness" | "questionnaire" | "complete">("liveliness");
+  const [stage, setStage] = useState<"questionnaire" | "complete">("questionnaire");
   const [qIdx, setQIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [selfieReady, setSelfieReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Google Maps States
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -74,7 +73,6 @@ export function TenantOnboarding() {
   const q = TENANT_ONBOARDING_QUESTIONS[qIdx];
   const currentVal = answers[q?.id];
 
-  // --- Effects ---
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (suggestionRef.current && !suggestionRef.current.contains(e.target as Node)) {
@@ -104,29 +102,45 @@ export function TenantOnboarding() {
     return () => clearTimeout(timer);
   }, [currentVal, q?.id, showSuggestions]);
 
-  // --- Handlers ---
   const patchAnswer = (val: any) => {
     setAnswers((prev) => ({ ...prev, [q.id]: val }));
   };
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (!isValidAnswer(q, currentVal)) return;
     if (qIdx < TENANT_ONBOARDING_QUESTIONS.length - 1) {
       setQIdx(qIdx + 1);
     } else {
       setStage("complete");
     }
-  };
+  }, [q, currentVal, qIdx]);
+
+  const selectAndContinue = useCallback((val: any) => {
+    setAnswers((prev) => ({ ...prev, [q.id]: val }));
+    setTimeout(() => {
+      if (qIdx < TENANT_ONBOARDING_QUESTIONS.length - 1) {
+        setQIdx(qIdx + 1);
+      } else {
+        setStage("complete");
+      }
+    }, 200);
+  }, [q, qIdx]);
 
   const handleBack = () => {
     if (qIdx > 0) setQIdx(qIdx - 1);
-    else setStage("liveliness");
+    else navigate(-1);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleContinue();
+    }
   };
 
   const finish = async () => {
     setIsSubmitting(true);
     try {
-      // Transform internal state objects into API-friendly strings
       const formattedResponses: Record<string, any> = {};
 
       TENANT_ONBOARDING_QUESTIONS.forEach(question => {
@@ -141,16 +155,16 @@ export function TenantOnboarding() {
       });
 
       const payload = {
-        user_id: user?.id || "07ad0f33-f5ec-49d7-bfbe-a38a25ba15a7", // Fallback for testing
+        user_id: user?.id,
         responses: formattedResponses
       };
 
       await axios.post(`${API_BASE_URL}/onboarding/quiz`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${getSavedToken()}` }
       });
 
       if (user) {
-        setUser({ ...user, onboardingAnswers: formattedResponses, onboarded: true, livelinessVerified: true });
+        setUser({ ...user, onboardingAnswers: formattedResponses, onboarded: true });
       }
       navigate("/swipe");
     } catch (err) {
@@ -187,33 +201,6 @@ export function TenantOnboarding() {
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 max-w-md mx-auto w-full">
-          {stage === "liveliness" && (
-              <div className="text-center space-y-6 w-full animate-in fade-in zoom-in-95">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto shadow-inner">
-                  <Shield className="w-10 h-10 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl font-black">Identity Check</h2>
-                  <p className="text-muted-foreground text-sm">A quick selfie helps keep our community safe.</p>
-                </div>
-                {!selfieReady ? (
-                    <button onClick={() => setSelfieReady(true)} className="w-full bg-card border-2 border-dashed border-border rounded-3xl py-12 flex flex-col items-center gap-3 hover:border-primary/40 transition-all group">
-                      <Camera className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <span className="text-muted-foreground font-bold text-xs uppercase tracking-widest">Tap to start camera</span>
-                    </button>
-                ) : (
-                    <div className="space-y-4">
-                      <div className="w-24 h-24 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center mx-auto shadow-lg shadow-green-500/20">
-                        <CheckCircle2 className="w-12 h-12 text-green-500" />
-                      </div>
-                      <button onClick={() => setStage("questionnaire")} className="w-full bg-primary text-white py-4 rounded-2xl font-black shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
-                        Continue <ChevronRight size={18} />
-                      </button>
-                    </div>
-                )}
-              </div>
-          )}
-
           {stage === "questionnaire" && q && (
               <div className="w-full space-y-8 animate-in slide-in-from-bottom-4 duration-300">
                 <div className="text-center space-y-2">
@@ -229,6 +216,7 @@ export function TenantOnboarding() {
                               className={inputClass}
                               value={typeof currentVal === "string" ? currentVal : ""}
                               onChange={(e) => { patchAnswer(e.target.value); setShowSuggestions(true); }}
+                              onKeyDown={handleKeyDown}
                               placeholder="Type your answer..."
                           />
                           {isSearching && <Loader2 className="absolute right-4 top-4 w-4 h-4 animate-spin text-primary" />}
@@ -247,13 +235,13 @@ export function TenantOnboarding() {
                   )}
 
                   {q.type === "number" && (
-                      <input type="number" className={inputClass} value={typeof currentVal === "number" ? currentVal : ""} onChange={(e) => patchAnswer(Number(e.target.value))} />
+                      <input type="number" className={inputClass} value={typeof currentVal === "number" ? currentVal : ""} onChange={(e) => patchAnswer(Number(e.target.value))} onKeyDown={handleKeyDown} />
                   )}
 
                   {q.type === "scale" && (
                       <div className="flex justify-between gap-2">
                         {Array.from({ length: q.max - q.min + 1 }, (_, i) => q.min + i).map((num) => (
-                            <button key={num} onClick={() => { patchAnswer(num); setTimeout(handleContinue, 200); }} className={`flex-1 aspect-square rounded-2xl font-black text-lg transition-all border-2 ${currentVal === num ? "bg-primary text-white border-primary shadow-lg shadow-primary/30" : "bg-card border-transparent text-muted-foreground hover:border-primary/20"}`}>
+                            <button key={num} onClick={() => selectAndContinue(num)} className={`flex-1 aspect-square rounded-2xl font-black text-lg transition-all border-2 ${currentVal === num ? "bg-primary text-white border-primary shadow-lg shadow-primary/30" : "bg-card border-transparent text-muted-foreground hover:border-primary/20"}`}>
                               {num}
                             </button>
                         ))}
@@ -264,19 +252,19 @@ export function TenantOnboarding() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Min Price</span>
-                          <input type="number" className={inputClass} value={currentVal?.min || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), min: +e.target.value })} />
+                          <input type="number" className={inputClass} value={currentVal?.min || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), min: +e.target.value })} onKeyDown={handleKeyDown} />
                         </div>
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Max Price</span>
-                          <input type="number" className={inputClass} value={currentVal?.max || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), max: +e.target.value })} />
+                          <input type="number" className={inputClass} value={currentVal?.max || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), max: +e.target.value })} onKeyDown={handleKeyDown} />
                         </div>
                       </div>
                   )}
 
                   {q.type === "boolean" && (
                       <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => { patchAnswer(true); setTimeout(handleContinue, 200); }} className={`py-5 rounded-3xl font-black transition-all border-2 ${currentVal === true ? "bg-primary text-white border-primary" : "bg-card border-transparent"}`}>Yes</button>
-                        <button onClick={() => { patchAnswer(false); setTimeout(handleContinue, 200); }} className={`py-5 rounded-3xl font-black transition-all border-2 ${currentVal === false ? "bg-primary text-white border-primary" : "bg-card border-transparent"}`}>No</button>
+                        <button onClick={() => selectAndContinue(true)} className={`py-5 rounded-3xl font-black transition-all border-2 ${currentVal === true ? "bg-primary text-white border-primary" : "bg-card border-transparent"}`}>Yes</button>
+                        <button onClick={() => selectAndContinue(false)} className={`py-5 rounded-3xl font-black transition-all border-2 ${currentVal === false ? "bg-primary text-white border-primary" : "bg-card border-transparent"}`}>No</button>
                       </div>
                   )}
 
@@ -284,11 +272,11 @@ export function TenantOnboarding() {
                       <div className="space-y-4">
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Move-in Date</span>
-                          <input type="date" className={inputClass} value={currentVal?.moveInDate || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), moveInDate: e.target.value })} />
+                          <input type="date" className={inputClass} value={currentVal?.moveInDate || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), moveInDate: e.target.value })} onKeyDown={handleKeyDown} />
                         </div>
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Lease Length (Months)</span>
-                          <input type="number" placeholder="e.g. 12" className={inputClass} value={currentVal?.leaseLengthMonths || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), leaseLengthMonths: +e.target.value })} />
+                          <input type="number" placeholder="e.g. 12" className={inputClass} value={currentVal?.leaseLengthMonths || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), leaseLengthMonths: +e.target.value })} onKeyDown={handleKeyDown} />
                         </div>
                       </div>
                   )}
