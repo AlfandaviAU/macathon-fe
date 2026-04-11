@@ -32,6 +32,8 @@ export interface UserProfile {
   tags: string[] | null;
   preferences: Record<string, unknown> | null;
   raw_quiz_results: Record<string, unknown> | null;
+  interested_property_ids?: string[] | null;
+  disliked_property_ids?: string[] | null;
 }
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
@@ -85,4 +87,15 @@ export function getSavedRole(): string | null {
 
 export function getSavedUserId(): string | null {
   return localStorage.getItem("user_id");
+}
+
+const LAST_EMAIL_KEY = "dwllr_last_login_email";
+
+export function saveLastLoginEmail(email: string) {
+  const trimmed = email.trim().toLowerCase();
+  if (trimmed) localStorage.setItem(LAST_EMAIL_KEY, trimmed);
+}
+
+export function getLastLoginEmail(): string {
+  return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
 }
