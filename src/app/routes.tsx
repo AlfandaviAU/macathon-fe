@@ -1,5 +1,5 @@
 import { createBrowserRouter } from "react-router";
-import { AppProviderLayout, ProtectedRoute } from "./components/Layout";
+import { AppProviderLayout, ProtectedLayout } from "./components/Layout";
 import { Landing } from "./components/Landing";
 import { Auth } from "./components/Auth";
 import { TenantOnboarding } from "./components/TenantOnboarding";
@@ -8,20 +8,20 @@ import { MatchesDashboard } from "./components/MatchesDashboard";
 import { PropertyDetail } from "./components/PropertyDetail";
 import { LandlordDashboard } from "./components/LandlordDashboard";
 import { ProfileEdit } from "./components/ProfileEdit";
-import {PropertyEdit} from "./components/PropertyEdit";
+import { PropertyEdit } from "./components/PropertyEdit";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: AppProviderLayout,
     children: [
-      // Public routes
+      // Public routes - No Layout UI
       { index: true, Component: Landing },
       { path: "auth", Component: Auth },
 
-      // Protected routes — require authentication
+      // Protected routes - Require authentication AND show Layout UI
       {
-        Component: ProtectedRoute,
+        Component: ProtectedLayout,
         children: [
           { path: "onboarding", Component: TenantOnboarding },
           { path: "swipe", Component: SwipeInterface },
@@ -33,6 +33,7 @@ export const router = createBrowserRouter([
         ],
       },
 
+      // Fallback route
       { path: "*", Component: Landing },
     ],
   },

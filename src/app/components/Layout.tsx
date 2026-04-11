@@ -5,33 +5,12 @@ import { Home, Search, Heart, User, Building2, LogOut, Loader2 } from "lucide-re
 export function AppProviderLayout() {
   return (
     <AppProvider>
-      <Layout />
+      <Outlet />
     </AppProvider>
   );
 }
 
-const PUBLIC_PATHS = ["/", "/auth"];
-
-export function ProtectedRoute() {
-  const { user, authLoading } = useApp();
-  const location = useLocation();
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
-  }
-
-  return <Outlet />;
-}
-
-export function Layout() {
+export function ProtectedLayout() {
   const { user, authLoading, logout } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,12 +23,8 @@ export function Layout() {
     );
   }
 
-  const isPublic = PUBLIC_PATHS.includes(location.pathname);
-  if (!user && isPublic) {
-    return <Outlet />;
-  }
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
 
   const tenantTabs = [
@@ -67,7 +42,7 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-card border-b border-border px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <Home className="w-4 h-4 text-primary-foreground" />
@@ -76,7 +51,7 @@ export function Layout() {
         </div>
         <button
           onClick={() => { logout(); navigate("/"); }}
-          className="text-muted-foreground hover:text-foreground p-2"
+          className="text-muted-foreground hover:text-foreground p-2 transition-colors"
         >
           <LogOut className="w-5 h-5" />
         </button>
@@ -89,7 +64,7 @@ export function Layout() {
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50">
         <div className="flex justify-around items-center py-2 max-w-lg mx-auto">
           {tabs.map((tab) => {
-            const active = location.pathname === tab.path;
+            const active = location.pathname === tab.path || location.pathname.startsWith(tab.path + "/");
             return (
               <button
                 key={tab.path}
@@ -99,7 +74,7 @@ export function Layout() {
                 }`}
               >
                 <tab.icon className="w-5 h-5" />
-                <span className="text-[0.68rem]">{tab.label}</span>
+                <span className="text-[0.68rem] font-medium">{tab.label}</span>
               </button>
             );
           })}
