@@ -1,21 +1,11 @@
-# Next.js template
 
-This is a Next.js template with shadcn/ui.
+  # Dwllr tenant matching app
 
-## Adding components
+  This is a code bundle for Dwllr tenant matching app. The original project is available at https://www.figma.com/design/yBBK7cEvfYL9dFH2YMSEk5/Dwllr-tenant-matching-app.
 
-To add components to your app, run the following command:
+  ## Running the code
 
-```bash
-npx shadcn@latest add button
-```
+  Run `npm i` to install the dependencies.
 
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+  Run `npm run dev` to start the development server.
+  
