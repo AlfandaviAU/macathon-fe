@@ -5,14 +5,14 @@ import {
   MessageCircle, Undo2, XCircle, Star, Sparkles, 
   Home as HomeIcon, CheckCircle2, ShieldCheck, Info,
   Zap, Clock, Target, Coffee, Utensils, Dumbbell, Loader2,
-  ThumbsUp, ThumbsDown, Navigation
+  ThumbsUp, ThumbsDown, Navigation, Phone, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
-import { getMatchExplanation, getPropertyById } from "../services/api";
+import { getMatchExplanation, getPropertyById, approveTenant, removeTenant, updateProperty } from "../services/api";
 import { getUserById } from "../services/auth";
 import axios from "axios";
 
@@ -35,6 +35,8 @@ interface PropertyData {
   super_liked_user_ids?: string[];
   super_liked_by_me: boolean;
   coords?: string;
+  landlord_email?: string;
+  landlord_phone?: string;
 }
 
 interface MatchExplanation {
@@ -48,7 +50,7 @@ interface MatchExplanation {
 
 export function PropertyDetail() {
   const { id } = useParams();
-  const { properties, tenantProfiles, user, superInterests, canSuperInterest, addSuperInterest, withdrawInterest, unmatchFromProperty } = useApp();
+  const { properties, tenantProfiles, user, superInterests, canSuperInterest, addSuperInterest, withdrawInterest, unmatchFromProperty, refreshProperties } = useApp();
   const navigate = useNavigate();
   
   const storeProperty = properties.find((p) => p.id === id);
@@ -73,10 +75,14 @@ export function PropertyDetail() {
     approved_user_ids: storeProperty.matchedTenants,
     super_liked_user_ids: [],
     super_liked_by_me: false,
+    landlord_email: "support@dwllr.com",
+    landlord_phone: "0400000000",
   } as PropertyData : null);
 
   const [imgIdx, setImgIdx] = useState(0);
   const [confirmUnmatch, setConfirmUnmatch] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const [matchExplanation, setMatchExplanation] = useState<MatchExplanation | null>(null);
   const [loadingExplanation, setLoadingExplanation] = useState(true);
   const [loadingProperty, setLoadingProperty] = useState(true);
@@ -86,6 +92,79 @@ export function PropertyDetail() {
 
   const [commuteInfo, setCommuteData] = useState<{ time: string; dist: string } | null>(null);
   const [loadingCommute, setLoadingCommute] = useState(false);
+
+  const images = displayProperty?.images?.length > 0 ? displayProperty.images : ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000"];
+
+  // Sync dots with scroll position
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = parseInt(entry.target.getAttribute("data-index") || "0");
+            setImgIdx(index);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+
+    const slides = scrollRef.current?.querySelectorAll("[data-index]");
+    slides?.forEach((slide) => observer.observe(slide));
+
+    return () => observer.disconnect();
+  }, [loadingProperty, images.length]);
+
+  const scrollToImage = (index: number) => {
+    const slide = scrollRef.current?.querySelector(`[data-index="${index}"]`);
+    slide?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  };
+
+  const handleApproveApplicant = async (userId: string) => {
+    if (!id || !displayProperty) return;
+    try {
+      // 1. Move from interested to approved
+      const updatedApproved = Array.from(new Set([...(displayProperty.approved_user_ids || []), userId]));
+      const updatedInterested = (displayProperty.interested_user_ids || []).filter(uid => uid !== userId);
+      
+      await updateProperty(id, {
+        approved_user_ids: updatedApproved,
+        interested_user_ids: updatedInterested,
+        images: displayProperty.images // ensure images are preserved
+      });
+      
+      // Refresh property data
+      const data = await getPropertyById(id);
+      setProperty(data);
+      refreshProperties();
+    } catch (err) {
+      console.error("Failed to approve applicant:", err);
+    }
+  };
+
+  const handleRemoveApplicant = async (userId: string) => {
+    if (!id || !displayProperty) return;
+    try {
+      // 2. Remove from all relevant arrays
+      const updatedApproved = (displayProperty.approved_user_ids || []).filter(uid => uid !== userId);
+      const updatedInterested = (displayProperty.interested_user_ids || []).filter(uid => uid !== userId);
+      const updatedSuperLiked = (displayProperty.super_liked_user_ids || []).filter(uid => uid !== userId);
+      
+      await updateProperty(id, {
+        approved_user_ids: updatedApproved,
+        interested_user_ids: updatedInterested,
+        super_liked_user_ids: updatedSuperLiked,
+        images: displayProperty.images // ensure images are preserved
+      });
+      
+      // Refresh property data
+      const data = await getPropertyById(id);
+      setProperty(data);
+      refreshProperties();
+    } catch (err) {
+      console.error("Failed to remove applicant:", err);
+    }
+  };
 
   const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
@@ -105,25 +184,27 @@ export function PropertyDetail() {
         ...displayProperty.approved_user_ids,
         ...displayProperty.interested_user_ids,
         ...(displayProperty.super_liked_user_ids || []),
-        ...(user ? [user.id] : [])
+        ...(user && user.type === "tenant" ? [user.id] : [])
       ]));
 
       setLoadingTribe(true);
       Promise.all(allIds.map(uid => getUserById(uid).catch(() => null)))
         .then(results => {
-           const valid = results.filter(Boolean).map((p: any) => ({
+           const valid = results
+            .filter((p: any) => p && p.role === "tenant")
+            .map((p: any) => ({
               id: p.id,
               name: p.name,
               photo: p.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
               bio: p.bio || "Member of this tribe",
-              traits: p.tags || p.personality_label ? [p.personality_label, ...(p.tags || [])] : ["Friendly"],
+              traits: [p.personality_label, ...(p.tags || [])].filter(Boolean),
               phone: p.phone || ""
            }));
            setTribeProfiles(valid);
         })
         .finally(() => setLoadingTribe(false));
     }
-  }, [displayProperty?.id, displayProperty?.interested_user_ids?.length, displayProperty?.approved_user_ids?.length, user?.id]);
+  }, [displayProperty?.id, displayProperty?.interested_user_ids?.length, displayProperty?.approved_user_ids?.length, user?.id, user?.type]);
 
   useEffect(() => {
     if (user?.id && id && user?.type === "tenant") {
@@ -199,13 +280,17 @@ export function PropertyDetail() {
   const currentPrice = (displayProperty.price / Math.max(displayProperty.current_tenants, 1)).toFixed(0);
 
   const isTenant = user?.type === "tenant";
+  const isApproved = isTenant && displayProperty.approved_user_ids?.includes(user.id);
+  
   const superInterestIds = isTenant ? superInterests.map((s) => s.propertyId) : [];
   const isSuperInterested = displayProperty.super_liked_by_me || (isTenant && superInterestIds.includes(displayProperty.id));
-  const canUseSuperInterest = isTenant ? (canSuperInterest() && !isSuperInterested) : false;
+  const canUseSuperInterest = isTenant ? (canSuperInterest() && !isSuperInterested && !isApproved) : false;
 
   const smsLink = `sms:${interestedProfiles.map((t) => t.phone).join(",")}?body=Hey! We're all matched on ${displayProperty.address} via Dwllr. Let's chat!`;
+  const landlordSmsLink = `sms:${property?.phone}?body=Hey! I'm approved for your property ${displayProperty.address} on Dwllr. Let's talk about the next steps!`;
 
   const getTagStyle = (tag: string) => {
+    if (!tag) return "bg-muted/50 text-muted-foreground border-border/50";
     const t = tag.toLowerCase();
     if (t.includes("tidy") || t.includes("clean") || t.includes("neat")) 
       return "bg-emerald-50 text-emerald-700 border-emerald-200/50";
@@ -218,37 +303,70 @@ export function PropertyDetail() {
     return "bg-muted/50 text-muted-foreground border-border/50";
   };
 
-  const images = property?.images?.length > 0 ? property.images : ["https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=1000"];
-
   return (
     <div className="min-h-screen bg-background text-foreground pb-40">
       
-      {/* 1. SEAMLESS IMAGE GALLERY */}
-      <section className="relative w-full aspect-[16/10] md:aspect-[21/9] overflow-hidden bg-muted/20 border-b border-border">
+      {/* 1. SEAMLESS IMAGE GALLERY (SLIDE) */}
+      <section className="relative w-full aspect-[16/10] md:aspect-[21/9] bg-muted/20 border-b border-border group/gallery">
         {loadingProperty ? (
            <div className="w-full h-full flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
            </div>
         ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={imgIdx}
-              initial={{ opacity: 0, scale: 1.02 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
-              className="w-full h-full"
+          <>
+            <div 
+              ref={scrollRef}
+              className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar"
             >
-              <ImageWithFallback 
-                 src={images[imgIdx]} 
-                 alt={property?.address || "Property"} 
-                 className="w-full h-full object-cover" 
-              />
-            </motion.div>
-          </AnimatePresence>
+              {images.map((img, i) => (
+                <div 
+                  key={i} 
+                  data-index={i}
+                  className="w-full h-full shrink-0 snap-start snap-always"
+                >
+                  <ImageWithFallback 
+                    src={img} 
+                    alt={`${displayProperty?.address} - ${i + 1}`} 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Navigation Buttons */}
+            {images.length > 1 && (
+              <>
+                <button
+                  onClick={() => scrollToImage((imgIdx - 1 + images.length) % images.length)}
+                  className="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/80 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-white transition-all shadow-xl active:scale-95 opacity-0 group-hover/gallery:opacity-100 z-20"
+                >
+                  <ChevronLeft className="w-6 h-6 text-foreground" />
+                </button>
+                <button
+                  onClick={() => scrollToImage((imgIdx + 1) % images.length)}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/80 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-white transition-all shadow-xl active:scale-95 opacity-0 group-hover/gallery:opacity-100 z-20"
+                >
+                  <ChevronRight className="w-6 h-6 text-foreground" />
+                </button>
+              </>
+            )}
+
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 px-10 pointer-events-none z-20">
+              {images.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToImage(i)}
+                  className={cn(
+                    "h-1 rounded-full transition-all duration-500 pointer-events-auto",
+                    i === imgIdx ? "w-10 bg-primary shadow-[0_0_10px_rgba(232,85,61,0.5)]" : "w-3 bg-white/60"
+                  )}
+                />
+              ))}
+            </div>
+          </>
         )}
 
-        <div className="absolute top-6 left-6 z-10">
+        <div className="absolute top-6 left-6 z-30">
           <button
             onClick={() => navigate(-1)}
             className="w-12 h-12 rounded-full bg-white/80 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-white transition-all shadow-xl active:scale-95"
@@ -479,60 +597,101 @@ export function PropertyDetail() {
                           <Loader2 className="w-8 h-8 animate-spin text-primary/40" />
                           <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Gathering Tribe Profiles...</p>
                        </div>
-                    ) : tribeProfiles.length > 0 ? tribeProfiles.map((t) => {
+                                        ) : tribeProfiles.length > 0 ? tribeProfiles.map((t) => {
                       const isMe = t.id === user?.id;
+                      const isLandlord = user?.type === "landlord";
+                      const isApproved = displayProperty.approved_user_ids?.includes(t.id);
                       const hasSuperLiked = displayProperty.super_liked_user_ids?.includes(t.id) || (isMe && isSuperInterested);
                       
                       return (
                         <div 
                           key={t.id} 
                           className={cn(
-                            "flex items-center gap-4 p-5 rounded-[2rem] bg-card border group transition-all hover:shadow-xl relative overflow-hidden",
+                            "flex flex-col p-5 rounded-[2rem] bg-card border group transition-all hover:shadow-xl relative overflow-hidden",
                             isMe ? "border-primary shadow-[0_0_20px_rgba(232,85,61,0.15)] ring-1 ring-primary/20" : "border-border hover:border-primary/40",
-                            hasSuperLiked && "border-amber-400/50 shadow-[0_0_25px_rgba(251,191,36,0.1)]"
+                            hasSuperLiked && "border-amber-400/50 shadow-[0_0_25px_rgba(251,191,36,0.1)]",
+                            isApproved && "bg-emerald-50/10 border-emerald-500/30 shadow-sm"
                           )}
                         >
-                          {/* Special Glow for Me */}
-                          {isMe && (
-                             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/5 rounded-full blur-3xl animate-pulse" />
-                          )}
-
-                          <div className={cn(
-                            "w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 shadow-lg relative",
-                            isMe ? "border-primary" : "border-background",
-                            hasSuperLiked && "border-amber-400"
-                          )}>
-                            <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                            {hasSuperLiked && (
-                               <div className="absolute top-0 right-0 p-1">
-                                  <div className="bg-amber-400 rounded-full p-0.5 shadow-lg">
-                                     <Star className="w-2.5 h-2.5 text-white fill-current" />
-                                  </div>
-                               </div>
+                          <div className="flex items-center gap-4">
+                            {/* Special Glow for Me */}
+                            {isMe && (
+                               <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/5 rounded-full blur-3xl animate-pulse" />
                             )}
+
+                            <div className={cn(
+                              "w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 shadow-lg relative",
+                              isMe ? "border-primary" : "border-background",
+                              hasSuperLiked && "border-amber-400",
+                              isApproved && "border-emerald-500"
+                            )}>
+                              <ImageWithFallback src={t.photo} alt={t.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                              {hasSuperLiked && (
+                                 <div className="absolute top-0 right-0 p-1">
+                                    <div className="bg-amber-400 rounded-full p-0.5 shadow-lg">
+                                       <Star className="w-2.5 h-2.5 text-white fill-current" />
+                                    </div>
+                                 </div>
+                              )}
+                              {isApproved && (
+                                 <div className="absolute top-0 right-0 p-1">
+                                    <div className="bg-emerald-500 rounded-full p-0.5 shadow-lg">
+                                       <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                                    </div>
+                                 </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                 <div className="text-base font-black truncate">{t.name}</div>
+                                 {isMe && (
+                                    <span className="bg-primary/10 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-primary/20">You</span>
+                                  )}
+                                  {hasSuperLiked && (
+                                    <span className="bg-amber-400/10 text-amber-600 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-amber-400/20 flex items-center gap-1">
+                                      <Zap className="w-2 h-2 fill-current" /> Super
+                                    </span>
+                                  )}
+                                  {isApproved && (
+                                    <span className="bg-emerald-500/10 text-emerald-600 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-emerald-500/20">Approved</span>
+                                  )}
+                              </div>
+                              <p className="text-xs text-muted-foreground font-medium line-clamp-1 mb-3">{t.bio}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {t.traits?.slice(0, 3).map((trait: string) => (
+                                  <span key={trait} className={cn("px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md border", getTagStyle(trait))}>
+                                    {trait}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                               <div className="text-base font-black truncate">{t.name}</div>
-                               {isMe && (
-                                  <span className="bg-primary/10 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-primary/20">You</span>
-                                )}
-                                {hasSuperLiked && (
-                                  <span className="bg-amber-400/10 text-amber-600 text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider border border-amber-400/20 flex items-center gap-1">
-                                    <Zap className="w-2 h-2 fill-current" /> Super
-                                  </span>
-                                )}
+                          {/* Landlord Controls */}
+                          {isLandlord && (
+                            <div className="flex gap-2 mt-4 pt-4 border-t border-border/50">
+                              {!isApproved ? (
+                                <Button 
+                                  onClick={() => handleApproveApplicant(t.id)}
+                                  className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black h-10 rounded-xl"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> APPROVE
+                                </Button>
+                              ) : (
+                                <div className="flex-1 flex items-center justify-center bg-emerald-50 text-emerald-600 text-[10px] font-black h-10 rounded-xl border border-emerald-200">
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> APPROVED
+                                </div>
+                              )}
+                              <Button 
+                                onClick={() => handleRemoveApplicant(t.id)}
+                                variant="outline"
+                                className="flex-1 border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600 text-[10px] font-black h-10 rounded-xl"
+                              >
+                                <XCircle className="w-3.5 h-3.5 mr-1.5" /> REMOVE
+                              </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground font-medium line-clamp-1 mb-3">{t.bio}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {t.traits?.slice(0, 3).map((trait: string) => (
-                                <span key={trait} className={cn("px-2 py-0.5 text-[9px] font-black uppercase tracking-widest rounded-md border", getTagStyle(trait))}>
-                                  {trait}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       );
                     }) : (
@@ -634,22 +793,47 @@ export function PropertyDetail() {
          <div className="fixed bottom-0 left-0 right-0 p-6 z-50 pointer-events-none">
             <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-4 pointer-events-auto bg-white/90 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-border shadow-[0_40px_100px_rgba(0,0,0,0.15)]">
                
-               {!isSuperInterested && canUseSuperInterest && (
-                 <Button
-                   onClick={() => addSuperInterest(property.id)}
-                   className="flex-[1.5] bg-primary hover:bg-primary/90 text-white h-20 rounded-3xl font-black text-base tracking-widest shadow-2xl shadow-primary/30 border-none transition-all active:scale-[0.97]"
-                 >
-                   <Star className="w-6 h-6 mr-3 fill-white" /> EXPRESS SUPER INTEREST
-                 </Button>
-               )}
+               {isApproved ? (
+                 <>
+                   <Button
+                     onClick={() => window.location.href = `tel:${displayProperty.landlord_phone || '0400000000'}`}
+                     className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white h-20 rounded-3xl font-black text-base tracking-widest shadow-2xl shadow-emerald-500/30 border-none transition-all active:scale-[0.97]"
+                   >
+                     <Phone className="w-6 h-6 mr-3" /> CALL LANDLORD
+                   </Button>
+                   <Button
+                     onClick={() => {
+                        if (displayProperty.landlord_phone) {
+                           window.location.href = landlordSmsLink;
+                        } else {
+                           window.location.href = `mailto:${displayProperty.landlord_email || 'support@dwllr.com'}?subject=Dwllr Approval - Next Steps&body=Hey! I'm approved for your property ${displayProperty.address}. Let's talk!`;
+                        }
+                     }}
+                     className="flex-1 bg-emerald-50/50 border-emerald-500/20 text-emerald-600 h-20 rounded-3xl font-black text-base transition-all hover:bg-emerald-100"
+                   >
+                     <MessageCircle className="w-6 h-6 mr-3" /> CHAT WITH LANDLORD
+                   </Button>
+                 </>
+               ) : (
+                 <>
+                   {!isSuperInterested && canUseSuperInterest && (
+                     <Button
+                       onClick={() => addSuperInterest(property.id)}
+                       className="flex-[1.5] bg-primary hover:bg-primary/90 text-white h-20 rounded-3xl font-black text-base tracking-widest shadow-2xl shadow-primary/30 border-none transition-all active:scale-[0.97]"
+                     >
+                       <Star className="w-6 h-6 mr-3 fill-white" /> EXPRESS SUPER INTEREST
+                     </Button>
+                   )}
 
-               {interestedProfiles.length > 0 && (
-                 <Button
-                   onClick={() => window.location.href = smsLink}
-                   className="flex-1 bg-foreground text-background h-20 rounded-3xl font-black text-base tracking-widest hover:bg-foreground/90 transition-all active:scale-[0.97]"
-                 >
-                   <MessageCircle className="w-6 h-6 mr-3" /> TRIBE CHAT ({interestedProfiles.length})
-                 </Button>
+                   {interestedProfiles.length > 0 && (
+                     <Button
+                       onClick={() => window.location.href = smsLink}
+                       className="flex-1 bg-foreground text-background h-20 rounded-3xl font-black text-base tracking-widest hover:bg-foreground/90 transition-all active:scale-[0.97]"
+                     >
+                       <MessageCircle className="w-6 h-6 mr-3" /> TRIBE CHAT ({interestedProfiles.length})
+                     </Button>
+                   )}
+                 </>
                )}
             </div>
          </div>

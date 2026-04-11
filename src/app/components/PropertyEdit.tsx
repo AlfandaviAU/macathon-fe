@@ -3,12 +3,13 @@ import { useParams, useNavigate } from "react-router";
 import { useApp } from "../store";
 import {
   ArrowLeft, X, Loader2, ImagePlus, Sparkles,
-  Calendar, MapPin, Save, Trash2, AlertCircle
+  Calendar, MapPin, Save, Trash2, AlertCircle,
+  Users, CheckCircle2, XCircle, Star, Zap, Phone
 } from "lucide-react";
-import api from "../services/api";
-import { getSavedToken } from "../services/auth";
+import api, { approveTenant, removeTenant } from "../services/api";
+import { getSavedToken, getUserById } from "../services/auth";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const PREFERENCE_OPTIONS = [
   "Tidy", "Non-smoker", "Quiet after 10pm", "Pet-friendly",
@@ -19,6 +20,7 @@ const PREFERENCE_OPTIONS = [
 export function PropertyEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { refreshProperties } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,9 +45,23 @@ export function PropertyEdit() {
   const [addressInput, setAddressInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [tribeProfiles, setTribeProfiles] = useState<any[]>([]);
+  const [loadingTribe, setLoadingTribe] = useState(false);
+  const [tribeIds, setTribeIds] = useState<{
+    interested: string[],
+    approved: string[],
+    superLiked: string[]
+  }>({ interested: [], approved: [], superLiked: [] });
+
   useEffect(() => {
     fetchProperty();
   }, [id]);
+
+  useEffect(() => {
+    if (tribeIds.interested.length > 0 || tribeIds.approved.length > 0 || tribeIds.superLiked.length > 0) {
+      fetchTribeProfiles();
+    }
+  }, [tribeIds]);
 
   const fetchProperty = async () => {
     try {
@@ -55,8 +71,15 @@ export function PropertyEdit() {
       if (res.ok) {
         const data = await res.json();
 
-        // Format the date for the <input type="date" /> (needs YYYY-MM-DD)
-        const dateOnly = data.expiry_date ? new Date(data.expiry_date).toISOString().split('T')[0] : "";
+        // Default to 1 month from now if expiry_date is null
+        let dateOnly = "";
+        if (data.expiry_date) {
+          dateOnly = new Date(data.expiry_date).toISOString().split('T')[0];
+        } else {
+          const nextMonth = new Date();
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          dateOnly = nextMonth.toISOString().split('T')[0];
+        }
 
         setForm({
           address: data.address,
@@ -71,11 +94,73 @@ export function PropertyEdit() {
         setAddressInput(data.address);
         setSelectedPrefs(data.tenant_preferences || []);
         setPreviews(data.images || []);
+        setTribeIds({
+          interested: data.interested_user_ids || [],
+          approved: data.approved_user_ids || [],
+          superLiked: data.super_liked_user_ids || []
+        });
       }
     } catch (err) {
       console.error("Failed to fetch property", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTribeProfiles = async () => {
+    const allIds = Array.from(new Set([
+      ...tribeIds.interested,
+      ...tribeIds.approved,
+      ...tribeIds.superLiked
+    ]));
+
+    setLoadingTribe(true);
+    try {
+      const results = await Promise.all(allIds.map(uid => getUserById(uid).catch(() => null)));
+      const valid = results.filter(Boolean).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone,
+        photo: p.profile_image_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
+        bio: p.bio || "Potential tenant",
+        traits: [p.personality_label, ...(p.tags || [])].filter(Boolean)
+      }));
+      setTribeProfiles(valid);
+    } catch (err) {
+      console.error("Failed to fetch tribe profiles", err);
+    } finally {
+      setLoadingTribe(false);
+    }
+  };
+
+  const handleApprove = async (userId: string) => {
+    try {
+      await approveTenant(id!, userId);
+      // Refresh local state
+      setTribeIds(prev => ({
+        ...prev,
+        approved: [...new Set([...prev.approved, userId])]
+      }));
+      await refreshProperties();
+    } catch (err) {
+      console.error("Failed to approve tenant", err);
+    }
+  };
+
+  const handleRemove = async (userId: string) => {
+    try {
+      await removeTenant(id!, userId);
+      // Refresh local state
+      setTribeIds(prev => ({
+        ...prev,
+        interested: prev.interested.filter(uid => uid !== userId),
+        approved: prev.approved.filter(uid => uid !== userId),
+        superLiked: prev.superLiked.filter(uid => uid !== userId)
+      }));
+      await refreshProperties();
+    } catch (err) {
+      console.error("Failed to remove tenant", err);
     }
   };
 
@@ -86,7 +171,10 @@ export function PropertyEdit() {
         method: "DELETE",
         headers: { 'Authorization': `Bearer ${getSavedToken()}` }
       });
-      if (res.ok) navigate('/landlord');
+      if (res.ok) {
+        await refreshProperties();
+        navigate('/landlord');
+      }
     } catch (err) {
       console.error("Delete failed", err);
     } finally {
@@ -113,7 +201,7 @@ export function PropertyEdit() {
         }
       }
 
-      await fetch(`${API_URL}/properties/${id}`, {
+      const res = await fetch(`${API_URL}/properties/${id}`, {
         method: "PATCH",
         headers: {
           'Authorization': `Bearer ${getSavedToken()}`,
@@ -122,10 +210,20 @@ export function PropertyEdit() {
         body: JSON.stringify({
           ...form,
           tenant_preferences: selectedPrefs,
-          images: finalImageUrls
+          images: finalImageUrls,
+          interested_user_ids: tribeIds.interested,
+          approved_user_ids: tribeIds.approved,
+          super_liked_user_ids: tribeIds.superLiked
         })
       });
-      navigate('/landlord');
+
+      if (res.ok) {
+        await refreshProperties();
+        navigate(`/landlord`);
+      } else {
+        const errData = await res.json();
+        console.error("Update failed server side:", errData);
+      }
     } catch (error) {
       console.error("Update failed", error);
     } finally {
@@ -277,6 +375,7 @@ export function PropertyEdit() {
               {PREFERENCE_OPTIONS.map(p => (
                   <button
                       key={p}
+                      type="button"
                       onClick={() => setSelectedPrefs(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedPrefs.includes(p) ? "bg-primary text-white border-primary" : "bg-white border-border text-muted-foreground"}`}
                   >
@@ -284,6 +383,84 @@ export function PropertyEdit() {
                   </button>
               ))}
             </div>
+          </div>
+
+          {/* Tribe Management */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 flex items-center gap-2">
+              <Users size={12} /> Manage Potential Tribe
+            </label>
+            
+            {loadingTribe ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="animate-spin text-primary" size={20} />
+              </div>
+            ) : tribeProfiles.length > 0 ? (
+              <div className="space-y-3">
+                {tribeProfiles.map((t) => {
+                  const isApproved = tribeIds.approved.includes(t.id);
+                  const isSuper = tribeIds.superLiked.includes(t.id);
+                  
+                  return (
+                    <div key={t.id} className={`p-4 rounded-2xl border ${isApproved ? 'bg-emerald-50/30 border-emerald-200' : 'bg-muted/20 border-border'} transition-all`}>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-border shrink-0">
+                          <img src={t.photo} alt={t.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black truncate">{t.name}</span>
+                            {isSuper && <Zap size={12} className="text-amber-500 fill-current" />}
+                            {isApproved && <CheckCircle2 size={12} className="text-emerald-500" />}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">{t.bio}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {t.traits.map((trait: string) => (
+                          <span key={trait} className="px-1.5 py-0.5 bg-white border border-border text-[8px] font-bold rounded-md uppercase tracking-wider text-muted-foreground">
+                            {trait}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground">
+                           <Phone size={10} /> {t.phone || 'No phone'}
+                        </div>
+                        <div className="flex gap-2">
+                          {!isApproved ? (
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(t.id)}
+                              className="flex items-center gap-1 bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-emerald-600 transition-colors shadow-sm"
+                            >
+                              <CheckCircle2 size={12} /> Approve
+                            </button>
+                          ) : (
+                            <div className="px-3 py-1.5 rounded-xl text-[10px] font-black text-emerald-600 bg-emerald-100 flex items-center gap-1">
+                               <CheckCircle2 size={12} /> Approved
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(t.id)}
+                            className="flex items-center gap-1 bg-red-50 text-red-500 border border-red-100 px-3 py-1.5 rounded-xl text-[10px] font-black hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                          >
+                            <XCircle size={12} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-muted/10 rounded-2xl border border-dashed border-border">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">No tribe activity yet</p>
+              </div>
+            )}
           </div>
 
           <button

@@ -34,6 +34,7 @@ export interface UserProfile {
   raw_quiz_results: Record<string, unknown> | null;
   interested_property_ids?: string[] | null;
   disliked_property_ids?: string[] | null;
+  approved_property_ids?: string[] | null;
 }
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {

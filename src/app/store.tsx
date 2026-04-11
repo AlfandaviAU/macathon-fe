@@ -95,6 +95,7 @@ interface AppState {
   unmatchFromProperty: (propertyId: string) => void;
   canSuperInterest: () => boolean;
   tenantProfiles: TenantProfile[];
+  refreshProperties: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState>({} as AppState);
@@ -116,9 +117,40 @@ const MOCK_PROPERTIES: Property[] = [
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(!!getSavedToken());
-  const [properties, setProperties] = useState<Property[]>(MOCK_PROPERTIES);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [swipes, setSwipes] = useState<SwipeRecord[]>([]);
   const [superInterests, setSuperInterests] = useState<{ propertyId: string; timestamp: number }[]>([]);
+
+  const refreshProperties = useCallback(async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API_URL}/properties`, {
+        headers: { 'Authorization': `Bearer ${getSavedToken()}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const mapped: Property[] = data.map((p: any) => ({
+          id: p.id,
+          landlordId: p.landlord_id,
+          address: p.address,
+          images: p.images || [],
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          garages: p.garages,
+          weeklyPrice: p.price,
+          maxTenants: p.max_tenants,
+          expiryDate: p.expiry_date,
+          tenantPreferences: p.tenant_preferences || [],
+          matchedTenants: p.approved_user_ids || [],
+          interestedTenants: p.interested_user_ids || [],
+          active: true
+        }));
+        setProperties(mapped);
+      }
+    } catch (err) {
+      console.error("Failed to fetch properties", err);
+    }
+  }, []);
 
   const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
@@ -136,7 +168,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!getSavedToken()) return;
     refreshUser().finally(() => setAuthLoading(false));
-  }, [refreshUser]);
+    refreshProperties();
+  }, [refreshUser, refreshProperties]);
 
   const logout = useCallback(() => {
     clearAuth();
@@ -201,6 +234,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         swipes, addSwipe,
         superInterests, addSuperInterest, withdrawInterest, unmatchFromProperty, canSuperInterest,
         tenantProfiles: MOCK_TENANT_PROFILES,
+        refreshProperties,
       }}
     >
       {children}

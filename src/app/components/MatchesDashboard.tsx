@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { 
   Heart, Star, Users, MapPin, XCircle, Undo2, 
   Loader2, Trash2, Zap, RefreshCcw, Sparkles, 
-  Target, TrendingUp
+  Target, TrendingUp, CheckCircle2, Phone, MessageCircle
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { getMe } from "../services/auth";
@@ -27,15 +27,17 @@ interface MatchProperty {
   super_liked_by_me?: boolean;
   occupancy_rate?: number;
   tenant_preferences: string[];
+  phone?: string;
 }
 
 export function MatchesDashboard() {
   const navigate = useNavigate();
   const { user } = useApp();
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"interested" | "disliked">("interested");
+  const [tab, setTab] = useState<"interested" | "disliked" | "approved">("interested");
   const [interested, setInterested] = useState<MatchProperty[]>([]);
   const [disliked, setDisliked] = useState<MatchProperty[]>([]);
+  const [approved, setApproved] = useState<MatchProperty[]>([]);
 
   const hasActiveSuperLike = interested.some(p => p.super_liked_by_me);
 
@@ -45,14 +47,17 @@ export function MatchesDashboard() {
       const me = await getMe();
       const intIds = me.interested_property_ids || [];
       const disIds = me.disliked_property_ids || [];
+      const appIds = me.approved_property_ids || [];
 
-      const [intData, disData] = await Promise.all([
+      const [intData, disData, appData] = await Promise.all([
         Promise.all(intIds.map(id => getPropertyById(id).catch(() => null))),
-        Promise.all(disIds.map(id => getPropertyById(id).catch(() => null)))
+        Promise.all(disIds.map(id => getPropertyById(id).catch(() => null))),
+        Promise.all(appIds.map(id => getPropertyById(id).catch(() => null)))
       ]);
 
       setInterested(intData.filter(Boolean) as MatchProperty[]);
       setDisliked(disData.filter(Boolean) as MatchProperty[]);
+      setApproved(appData.filter(Boolean) as MatchProperty[]);
     } catch (err) {
       console.error("Failed to fetch matches:", err);
     } finally {
@@ -118,21 +123,31 @@ export function MatchesDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex p-1.5 bg-muted/50 backdrop-blur-xl border border-border/50 rounded-[1.5rem] mb-10">
+        <div className="flex p-1.5 bg-muted/50 backdrop-blur-xl border border-border/50 rounded-[1.5rem] mb-10 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setTab("approved")}
+            className={cn(
+              "flex-1 min-w-[100px] py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2",
+              tab === "approved" ? "bg-background text-foreground shadow-lg border border-border" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <CheckCircle2 className={cn("w-3.5 h-3.5", tab === "approved" && "text-emerald-500")} /> 
+            Approved ({approved.length})
+          </button>
           <button
             onClick={() => setTab("interested")}
             className={cn(
-              "flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2",
+              "flex-1 min-w-[100px] py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2",
               tab === "interested" ? "bg-background text-foreground shadow-lg border border-border" : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Heart className={cn("w-3.5 h-3.5", tab === "interested" && "fill-current text-primary")} /> 
-            Live Matches ({interested.length})
+            Interested ({interested.length})
           </button>
           <button
             onClick={() => setTab("disliked")}
             className={cn(
-              "flex-1 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2",
+              "flex-1 min-w-[100px] py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2",
               tab === "disliked" ? "bg-background text-foreground shadow-lg border border-border" : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -152,7 +167,7 @@ export function MatchesDashboard() {
         ) : (
           <div className="space-y-6">
             <AnimatePresence mode="popLayout">
-              {(tab === "interested" ? interested : disliked).map((p, i) => (
+              {(tab === "interested" ? interested : tab === "approved" ? approved : disliked).map((p, i) => (
                 <motion.div
                   layout
                   initial={{ opacity: 0, y: 20 }}
@@ -164,7 +179,7 @@ export function MatchesDashboard() {
                   <MatchCard 
                     property={p} 
                     type={tab}
-                    onRemove={tab === "interested" ? handleRemoveInterest : handleRemoveDislike}
+                    onRemove={tab === "interested" ? handleMoveToDislike : handleRemoveDislike}
                     onToggle={tab === "interested" ? handleMoveToDislike : handleMoveToInterested}
                     onView={() => navigate(`/property/${p.id}`)}
                     onRefresh={fetchAll}
@@ -174,12 +189,12 @@ export function MatchesDashboard() {
               ))}
             </AnimatePresence>
 
-            {(tab === "interested" ? interested : disliked).length === 0 && (
+            {(tab === "interested" ? interested : tab === "approved" ? approved : disliked).length === 0 && (
               <div className="text-center py-24 bg-muted/10 rounded-[3rem] border border-dashed border-border/50">
                 <div className="w-20 h-20 rounded-full bg-background border border-border flex items-center justify-center mx-auto mb-6 shadow-sm">
-                  {tab === "interested" ? <Heart className="w-10 h-10 text-muted-foreground/20" /> : <Trash2 className="w-10 h-10 text-muted-foreground/20" />}
+                  {tab === "interested" ? <Heart className="w-10 h-10 text-muted-foreground/20" /> : tab === "approved" ? <CheckCircle2 className="w-10 h-10 text-muted-foreground/20" /> : <Trash2 className="w-10 h-10 text-muted-foreground/20" />}
                 </div>
-                <h3 className="font-black text-xl tracking-tight">Your Tribe List is Empty</h3>
+                <h3 className="font-black text-xl tracking-tight">Your {tab} List is Empty</h3>
                 <p className="text-muted-foreground text-[13px] font-medium mt-2 max-w-xs mx-auto">Start exploring more properties to find people who match your energy.</p>
                 <Button onClick={() => navigate("/swipe")} className="mt-8 rounded-2xl font-black uppercase tracking-widest px-8 h-14 text-xs shadow-xl shadow-primary/20 border-none">
                    Find New Matches
@@ -188,60 +203,65 @@ export function MatchesDashboard() {
             )}
           </div>
         )}
-      </div>
-    </div>
-  );
-}
+        </div>
+        </div>
+        );
+        }
 
-function MatchCard({ 
-  property, 
-  type, 
-  onRemove, 
-  onToggle, 
-  onView,
-  onRefresh,
-  hasActiveSuperLike
-}: { 
-  property: MatchProperty; 
-  type: "interested" | "disliked";
-  onRemove: (id: string) => void;
-  onToggle: (id: string) => void;
-  onView: () => void;
-  onRefresh: () => void;
-  hasActiveSuperLike: boolean;
-}) {
-  const { user } = useApp();
-  const [isSuperLiking, setIsSuperLiking] = useState(false);
-  
-  const minPrice = (property.price / property.max_tenants).toFixed(0);
+        function MatchCard({ 
+        property, 
+        type, 
+        onRemove, 
+        onToggle, 
+        onView,
+        onRefresh,
+        hasActiveSuperLike
+        }: { 
+        property: MatchProperty; 
+        type: "interested" | "disliked" | "approved";
+        onRemove: (id: string) => void;
+        onToggle: (id: string) => void;
+        onView: () => void;
+        onRefresh: () => void;
+        hasActiveSuperLike: boolean;
+        }) {
+        const { user } = useApp();
+        const [isSuperLiking, setIsSuperLiking] = useState(false);
 
-  const handleSuperLike = async (e: React.MouseEvent) => {
-    if (hasActiveSuperLike) return;
-    e.stopPropagation();
-    setIsSuperLiking(true);
-    try {
-      await superLike(property.id);
-      onRefresh();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSuperLiking(false);
-    }
-  };
+        const minPrice = (property.price / property.max_tenants).toFixed(0);
 
-  const handleRefreshSuper = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await refreshSuperLike(property.id);
-      onRefresh();
-    } catch (err) {
-      console.error(err);
-    }
-  };
+        const handleSuperLike = async (e: React.MouseEvent) => {
+        if (hasActiveSuperLike) return;
+        e.stopPropagation();
+        setIsSuperLiking(true);
+        try {
+        await superLike(property.id);
+        onRefresh();
+        } catch (err) {
+        console.error(err);
+        } finally {
+        setIsSuperLiking(false);
+        }
+        };
 
-  return (
-    <div className="group bg-card border border-border/60 rounded-[2.5rem] overflow-hidden hover:shadow-[0_30px_60px_-12px_rgba(0,0,0,0.08)] hover:border-primary/20 transition-all duration-500">
-      <div className="flex flex-col md:flex-row">
+        const handleRefreshSuper = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+        await refreshSuperLike(property.id);
+        onRefresh();
+        } catch (err) {
+        console.error(err);
+        }
+        };
+
+        const smsLink = `sms:${property.phone}?body=Hey! I'm approved for your property ${property.address} on Dwllr. Let's chat!`;
+
+        return (
+        <div className={cn(
+        "group bg-card border rounded-[2.5rem] overflow-hidden hover:shadow-[0_30px_60px_-12px_rgba(0,0,0,0.08)] transition-all duration-500",
+        type === "approved" ? "border-emerald-500/30 shadow-[0_20px_40px_-12px_rgba(16,185,129,0.1)]" : "border-border/60 hover:border-primary/20"
+        )}>
+        <div className="flex flex-col md:flex-row">
         {/* Image & Score Stage */}
         <div className="relative w-full md:w-64 h-56 md:h-auto overflow-hidden bg-muted cursor-pointer" onClick={onView}>
           <ImageWithFallback 
@@ -249,10 +269,15 @@ function MatchCard({
             alt={property.address} 
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" 
           />
-          
+
           {/* AI Match Overlay */}
           <div className="absolute top-4 left-4 z-10">
              <div className="flex flex-col gap-2">
+                {type === "approved" && (
+                  <div className="bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-1.5 backdrop-blur-md">
+                    <CheckCircle2 className="w-3 h-3 fill-current" /> Approved
+                  </div>
+                )}
                 {property.super_liked_by_me && (
                   <div className="bg-primary text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-1.5 backdrop-blur-md">
                     <Zap className="w-3 h-3 fill-current" /> Super Interest
@@ -306,62 +331,75 @@ function MatchCard({
 
           {/* Action Hub */}
           <div className="flex items-center gap-3">
-            <Button onClick={onView} className="flex-1 h-14 rounded-2xl font-black text-[11px] tracking-widest uppercase shadow-lg shadow-primary/10">View Analysis</Button>
-            
-            {type === "interested" ? (
-              <div className="flex gap-2">
-                {!property.super_liked_by_me ? (
-                  <button 
-                    onClick={handleSuperLike}
-                    disabled={isSuperLiking || hasActiveSuperLike}
-                    title={hasActiveSuperLike ? "One super-like allowed per 24h" : "Boost this match"}
-                    className={cn(
-                      "w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-lg border",
-                      (isSuperLiking || hasActiveSuperLike) 
-                        ? "bg-muted text-muted-foreground border-transparent cursor-not-allowed grayscale" 
-                        : "bg-primary/5 text-primary border-primary/20 hover:bg-primary hover:text-white"
-                    )}
-                  >
-                    {isSuperLiking ? <Loader2 className="w-6 h-6 animate-spin" /> : <Star className={cn("w-6 h-6", !hasActiveSuperLike && "animate-pulse")} />}
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleRefreshSuper}
-                    title="Renew Super Match"
-                    className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg border border-emerald-500/20"
-                  >
-                    <RefreshCcw className="w-6 h-6" />
-                  </button>
-                )}
-                <button 
-                  onClick={() => onToggle(property.id)}
-                  title="Move to Passed"
-                  className="w-14 h-14 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center hover:bg-destructive hover:text-white transition-all border border-transparent shadow-sm"
-                >
-                  <Undo2 className="w-6 h-6" />
-                </button>
-              </div>
+            {type === "approved" ? (
+              <>
+                <Button onClick={() => window.location.href = `tel:${property.phone}`} className="flex-1 h-14 rounded-2xl font-black text-[11px] tracking-widest uppercase bg-emerald-500 hover:bg-emerald-600 border-none shadow-lg shadow-emerald-500/20">
+                  <Phone className="w-4 h-4 mr-2" /> Call Landlord
+                </Button>
+                <Button onClick={() => window.location.href = smsLink} variant="outline" className="flex-1 h-14 rounded-2xl font-black text-[11px] tracking-widest uppercase border-emerald-500/20 text-emerald-600 hover:bg-emerald-50">
+                  <MessageCircle className="w-4 h-4 mr-2" /> Start Chat
+                </Button>
+              </>
             ) : (
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => onToggle(property.id)}
-                  title="Re-match with this Property"
-                  className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all border border-primary/20 shadow-lg"
-                >
-                  <Heart className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={() => onRemove(property.id)}
-                  title="Remove Forever"
-                  className="w-14 h-14 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center hover:bg-destructive hover:text-white transition-all border border-transparent shadow-sm"
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
+              <>
+                <Button onClick={onView} className="flex-1 h-14 rounded-2xl font-black text-[11px] tracking-widest uppercase shadow-lg shadow-primary/10">View Analysis</Button>
+
+                {type === "interested" ? (
+                  <div className="flex gap-2">
+                    {!property.super_liked_by_me ? (
+                      <button 
+                        onClick={handleSuperLike}
+                        disabled={isSuperLiking || hasActiveSuperLike}
+                        title={hasActiveSuperLike ? "One super-like allowed per 24h" : "Boost this match"}
+                        className={cn(
+                          "w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-lg border",
+                          (isSuperLiking || hasActiveSuperLike) 
+                            ? "bg-muted text-muted-foreground border-transparent cursor-not-allowed grayscale" 
+                            : "bg-primary/5 text-primary border-primary/20 hover:bg-primary hover:text-white"
+                        )}
+                      >
+                        {isSuperLiking ? <Loader2 className="w-6 h-6 animate-spin" /> : <Star className={cn("w-6 h-6", !hasActiveSuperLike && "animate-pulse")} />}
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={handleRefreshSuper}
+                        title="Renew Super Match"
+                        className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg border border-emerald-500/20"
+                      >
+                        <RefreshCcw className="w-6 h-6" />
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => onToggle(property.id)}
+                      title="Move to Passed"
+                      className="w-14 h-14 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center hover:bg-destructive hover:text-white transition-all border border-transparent shadow-sm"
+                    >
+                      <Undo2 className="w-6 h-6" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => onToggle(property.id)}
+                      title="Re-match with this Property"
+                      className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all border border-primary/20 shadow-lg"
+                    >
+                      <Heart className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={() => onRemove(property.id)}
+                      title="Remove Forever"
+                      className="w-14 h-14 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center hover:bg-destructive hover:text-white transition-all border border-transparent shadow-sm"
+                    >
+                      <XCircle className="w-6 h-6" />
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+        </div>
+        </div>
+        );
+        }
