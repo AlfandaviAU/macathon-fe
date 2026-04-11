@@ -49,18 +49,18 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#030303] text-white">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-background text-foreground">
       {/* Background decoration */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-20">
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
         <div className="absolute inset-0 opacity-[0.05] bg-[url('https://grainy-gradients.vercel.app/noise.svg')]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#e8553d]/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#e8553d]/10 rounded-full blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#e8553d]/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#e8553d]/5 rounded-full blur-[120px]" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-white/40 hover:text-white transition-colors mb-12 group"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-12 group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           <span className="text-sm font-bold uppercase tracking-widest">Back to Home</span>
@@ -68,17 +68,17 @@ export function Login() {
 
         <div className="flex items-center gap-4 mb-10">
           <div className="w-12 h-12 rounded-2xl bg-[#e8553d] flex items-center justify-center shadow-lg shadow-[#e8553d]/20">
-            <Home className="w-6 h-6 text-black" />
+            <Home className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black tracking-tighter leading-none">Welcome Back</h1>
-            <p className="text-white/40 text-sm font-bold uppercase tracking-widest mt-1">Log in to your account</p>
+            <h1 className="text-3xl font-black tracking-tighter leading-none text-foreground">Welcome Back</h1>
+            <p className="text-muted-foreground text-sm font-bold uppercase tracking-widest mt-1">Log in to your account</p>
           </div>
         </div>
 
-        <div className="bg-white/[0.03] backdrop-blur-3xl rounded-[2.5rem] border border-white/10 p-10 shadow-2xl">
+        <div className="bg-card backdrop-blur-3xl rounded-[2.5rem] border border-border p-10 shadow-2xl">
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[13px] font-bold px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+            <div className="bg-rose-500/10 border border-rose-500/20 text-rose-600 text-[13px] font-bold px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
               {error}
             </div>
@@ -86,11 +86,11 @@ export function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1">Email Address</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Email Address</label>
               <input
                 type="email"
                 required
-                className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium"
+                className="w-full px-5 py-4 rounded-2xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="name@email.com"
@@ -98,12 +98,12 @@ export function Login() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 ml-1">Password</label>
+              <label className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Password</label>
               <div className="relative">
                 <input
                   type={showPw ? "text" : "password"}
                   required
-                  className="w-full px-5 py-4 rounded-2xl bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium pr-12"
+                  className="w-full px-5 py-4 rounded-2xl bg-muted/50 border border-border text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-[#e8553d]/50 transition-all font-medium pr-12"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
@@ -111,7 +111,7 @@ export function Login() {
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -131,8 +131,8 @@ export function Login() {
             </Button>
           </form>
 
-          <div className="mt-10 pt-8 border-t border-white/5 text-center">
-            <p className="text-white/40 text-sm font-medium">
+          <div className="mt-10 pt-8 border-t border-border text-center">
+            <p className="text-muted-foreground text-sm font-medium">
               Don't have an account? <br className="sm:hidden" />
               <Link to="/signup/tenant" className="text-[#e8553d] font-black uppercase tracking-widest text-xs ml-2 hover:underline underline-offset-4">
                 Join the Tribe

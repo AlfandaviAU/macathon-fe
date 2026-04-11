@@ -28,4 +28,9 @@ api.interceptors.response.use(
   },
 );
 
+export const getMatchExplanation = async (userId: string, propertyId: string) => {
+  const response = await api.get(`/matching/explain-property/${userId}/${propertyId}`);
+  return response.data;
+};
+
 export default api;
