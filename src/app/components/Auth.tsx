@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useApp } from "../store";
 import { Home, Eye, EyeOff, Loader2 } from "lucide-react";
-import { login, register, saveAuth } from "../services/auth";
+import { login, register, saveAuth, saveLastLoginEmail, getLastLoginEmail } from "../services/auth";
 import { AxiosError } from "axios";
 
 export function Auth() {
@@ -10,7 +10,14 @@ export function Auth() {
   const typeParam = searchParams.get("type") as "tenant" | "landlord" | null;
   const [isSignUp, setIsSignUp] = useState(true);
   const [showPw, setShowPw] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [form, setForm] = useState(() => ({
+    name: "",
+    email: getLastLoginEmail(),
+    phone: "",
+    password: "",
+    confirmPassword: "",
+  }));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { refreshUser } = useApp();
@@ -36,6 +43,10 @@ export function Auth() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    if (isSignUp && form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -58,6 +69,7 @@ export function Auth() {
       }
 
       saveAuth(authResponse);
+      saveLastLoginEmail(form.email);
       const currentUser = await refreshUser();
 
       if (authResponse.role === "landlord") {
@@ -148,12 +160,31 @@ export function Auth() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="Min 8 characters"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
+            {isSignUp && (
+              <div>
+                <label className="text-[0.8rem] text-muted-foreground mb-1 block">Confirm password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPw ? "text" : "password"}
+                    className="w-full px-3 py-2.5 rounded-lg bg-input-background border border-border pr-10"
+                    value={form.confirmPassword}
+                    onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                  />
+                  <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {showConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
             <button
               type="submit"
               disabled={submitting}
@@ -166,7 +197,14 @@ export function Auth() {
 
           <p className="text-center text-[0.8rem] text-muted-foreground mt-4">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-            <button onClick={() => { setIsSignUp(!isSignUp); setError(null); }} className="text-primary hover:underline">
+            <button
+              onClick={() => {
+                if (isSignUp) setForm((f) => ({ ...f, confirmPassword: "" }));
+                setIsSignUp(!isSignUp);
+                setError(null);
+              }}
+              className="text-primary hover:underline"
+            >
               {isSignUp ? "Log in" : "Sign up"}
             </button>
           </p>
