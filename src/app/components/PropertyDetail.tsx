@@ -634,22 +634,14 @@ export function PropertyDetail() {
          <div className="fixed bottom-0 left-0 right-0 p-6 z-50 pointer-events-none">
             <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-4 pointer-events-auto bg-white/90 backdrop-blur-3xl p-4 rounded-[2.5rem] border border-border shadow-[0_40px_100px_rgba(0,0,0,0.15)]">
                
-               {!isSuperInterested && canUseSuperInterest ? (
+               {!isSuperInterested && canUseSuperInterest && (
                  <Button
                    onClick={() => addSuperInterest(property.id)}
                    className="flex-[1.5] bg-primary hover:bg-primary/90 text-white h-20 rounded-3xl font-black text-base tracking-widest shadow-2xl shadow-primary/30 border-none transition-all active:scale-[0.97]"
                  >
                    <Star className="w-6 h-6 mr-3 fill-white" /> EXPRESS SUPER INTEREST
                  </Button>
-               ) : isSuperInterested ? (
-                 <Button
-                   onClick={() => withdrawInterest(property.id)}
-                   variant="outline"
-                   className="flex-[1.5] border-primary/20 text-primary h-20 rounded-3xl font-black text-base transition-all"
-                 >
-                   <Undo2 className="w-6 h-6 mr-3" /> WITHDRAW INTEREST
-                 </Button>
-               ) : null}
+               )}
 
                {interestedProfiles.length > 0 && (
                  <Button
@@ -659,44 +651,7 @@ export function PropertyDetail() {
                    <MessageCircle className="w-6 h-6 mr-3" /> TRIBE CHAT ({interestedProfiles.length})
                  </Button>
                )}
-
-               {(!isSuperInterested || !canUseSuperInterest) && interestedProfiles.length === 0 && (
-                  <Button
-                     onClick={() => setConfirmUnmatch(true)}
-                     variant="ghost"
-                     className="flex-1 text-muted-foreground hover:text-destructive h-20 rounded-3xl font-bold"
-                  >
-                     <XCircle className="w-4 h-4 mr-2" /> Unmatch Property
-                  </Button>
-               )}
             </div>
-
-            <AnimatePresence>
-               {confirmUnmatch && (
-                  <motion.div 
-                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
-                     className="absolute bottom-full left-6 right-6 mb-4 max-w-lg mx-auto bg-white border border-border rounded-[2.5rem] p-10 shadow-2xl pointer-events-auto"
-                  >
-                     <h4 className="text-2xl font-black mb-2">Wait! Removing Match?</h4>
-                     <p className="text-sm text-muted-foreground mb-8">This tribe seems like a {matchExplanation?.overall_match_score || 98}% match for your personality. Are you sure you want to unmatch?</p>
-                     <div className="flex gap-4">
-                        <Button
-                           onClick={() => { unmatchFromProperty(property.id); navigate("/matches"); }}
-                           className="flex-1 bg-destructive hover:bg-destructive/90 text-white h-14 rounded-2xl font-black"
-                        >
-                           Yes, Unmatch
-                        </Button>
-                        <Button
-                           onClick={() => setConfirmUnmatch(false)}
-                           variant="outline"
-                           className="flex-1 h-14 rounded-2xl font-black"
-                        >
-                           Go Back
-                        </Button>
-                     </div>
-                  </motion.div>
-               )}
-            </AnimatePresence>
          </div>
       )}
     </div>
