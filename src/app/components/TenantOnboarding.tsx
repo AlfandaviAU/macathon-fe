@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import { useApp, type OnboardingAnswerValue, type OnboardingMoveInLease } from "../store";
+import { useApp } from "../store";
 import { Camera, CheckCircle2, ChevronRight, Shield, MapPin, Loader2, ChevronLeft } from "lucide-react";
 import axios from "axios";
 
 // --- Constants & Types ---
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 type QuestionBase = { id: string; category: string; question: string };
 type TextQ = QuestionBase & { type: "text" };
@@ -13,7 +14,7 @@ type NumberQ = QuestionBase & { type: "number" };
 type ScaleQ = QuestionBase & { type: "scale"; min: number; max: number };
 type RangeQ = QuestionBase & { type: "range"; min: number; max: number };
 type BooleanQ = QuestionBase & { type: "boolean" };
-type DateLeaseQ = QuestionBase & { type: "date_lease"; leaseMinMonths: number; leaseMaxMonths: number };
+type DateLeaseQ = QuestionBase & { type: "date_lease" };
 
 export type OnboardingQuestion = TextQ | NumberQ | ScaleQ | RangeQ | BooleanQ | DateLeaseQ;
 
@@ -24,51 +25,45 @@ export const TENANT_ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
   { id: "4_common_locations", category: "Lifestyle", question: "Where do you usually hang out?", type: "text" },
   { id: "5_study_locations", category: "Lifestyle", question: "Work or Study location?", type: "text" },
   { id: "14_wfh_status", category: "Lifestyle", question: "Days per week you work from home?", type: "scale", min: 0, max: 7 },
-  { id: "6_personality_traits", category: "Vibe", question: "Introvert (1) vs. Extrovert (5)", type: "scale", min: 1, max: 5 },
-  { id: "7_budget_range", category: "Financials", question: "Weekly budget range ($)", type: "range", min: 100, max: 2000 },
-  { id: "9_move_in_date", category: "Financials", question: "Move-in date & Lease length", type: "date_lease", leaseMinMonths: 1, leaseMaxMonths: 120 },
-  { id: "11_cleanliness_level", category: "Living Habits", question: "Cleanliness Level (1-5)", type: "scale", min: 1, max: 5 },
-  { id: "12_social_battery", category: "Living Habits", question: "Social Battery (Quiet vs. Social hub)", type: "scale", min: 1, max: 5 },
+  { id: "6_personality_traits", category: "Vibe", question: "How extroverted are you?", type: "scale", min: 1, max: 5 },
+  { id: "7_budget_range", category: "Financials", question: "Weekly budget range ($)", type: "range", min: 0, max: 2000 },
+  { id: "8_distance_preference", category: "Logistics", question: "Preferred distance to campus (km)?", type: "number" },
+  { id: "9_move_in_date", category: "Financials", question: "Move-in date & Lease length", type: "date_lease" },
+  { id: "10_parking_requirement", category: "Logistics", question: "Do you require parking?", type: "boolean" },
+  { id: "11_cleanliness_level", category: "Living Habits", question: "How much do you prioritise cleanliness?", type: "scale", min: 1, max: 5 },
+  { id: "12_social_battery", category: "Living Habits", question: "How social would you like the house to be?", type: "scale", min: 1, max: 5 },
+  { id: "13_guest_policy", category: "Living Habits", question: "How often do you plan to have guests?", type: "scale", min: 1, max: 5 },
   { id: "15_bathroom_preference", category: "Preferences", question: "Do you require a private bathroom?", type: "boolean" },
   { id: "16_pet_question", category: "Preferences", question: "Are you okay with pets in the house?", type: "boolean" },
-  { id: "17_utility_preferences", category: "Logistics", question: "Utility Preferences (Shared bills vs. Separate?)", type: "boolean" },
+  { id: "17_utility_preferences", category: "Logistics", question: "Are shared utilities okay?", type: "boolean" },
   { id: "18_smoking_vaping", category: "Logistics", question: "Smoking/Vaping preference?", type: "boolean" },
-  { id: "19_dietary_practices", category: "Logistics", question: "Dietary/Religious requirements for kitchen?", type: "text" },
-  { id: "20_allergies", category: "Logistics", question: "Allergies (Pets, dust, etc.)", type: "text" },
+  { id: "19_dietary_practices", category: "Logistics", question: "Dietary/Religious requirements?", type: "text" },
+  { id: "20_allergies", category: "Logistics", question: "Allergies (Pets, dust, etc.)", type: "text" }
 ];
 
-type Stage = "liveliness" | "questionnaire" | "complete";
-
 // --- Helpers ---
-function todayISODateLocal() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function isMoveInLeaseValue(v: any): v is OnboardingMoveInLease {
-  return v && typeof v === "object" && "moveInDate" in v;
-}
-
 function isValidAnswer(q: OnboardingQuestion, v: any): boolean {
   if (v === undefined || v === null) return false;
   switch (q.type) {
     case "text": return typeof v === "string" && v.trim().length > 0;
     case "number": return typeof v === "number" && !Number.isNaN(v);
     case "scale": return typeof v === "number" && v >= q.min;
-    case "range": return v.min >= q.min && v.max <= q.max && v.min <= v.max;
+    case "range": return v && typeof v.min === 'number' && typeof v.max === 'number' && v.max >= v.min;
     case "boolean": return typeof v === "boolean";
-    case "date_lease": return isMoveInLeaseValue(v) && v.moveInDate !== "" && !Number.isNaN(v.leaseLengthMonths);
+    case "date_lease": return v && !!v.moveInDate && !!v.leaseLengthMonths;
     default: return false;
   }
 }
 
 export function TenantOnboarding() {
-  const { user, setUser } = useApp();
+  const { user, setUser, token } = useApp();
   const navigate = useNavigate();
 
-  const [stage, setStage] = useState<Stage>("liveliness");
+  const [stage, setStage] = useState<"liveliness" | "questionnaire" | "complete">("liveliness");
   const [qIdx, setQIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, OnboardingAnswerValue>>({});
+  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [selfieReady, setSelfieReady] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Google Maps States
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -110,7 +105,7 @@ export function TenantOnboarding() {
   }, [currentVal, q?.id, showSuggestions]);
 
   // --- Handlers ---
-  const patchAnswer = (val: OnboardingAnswerValue) => {
+  const patchAnswer = (val: any) => {
     setAnswers((prev) => ({ ...prev, [q.id]: val }));
   };
 
@@ -128,11 +123,42 @@ export function TenantOnboarding() {
     else setStage("liveliness");
   };
 
-  const finish = () => {
-    if (user) {
-      setUser({ ...user, onboardingAnswers: answers, onboarded: true, livelinessVerified: true });
+  const finish = async () => {
+    setIsSubmitting(true);
+    try {
+      // Transform internal state objects into API-friendly strings
+      const formattedResponses: Record<string, any> = {};
+
+      TENANT_ONBOARDING_QUESTIONS.forEach(question => {
+        const val = answers[question.id];
+        if (question.type === "range") {
+          formattedResponses[question.id] = `${val.min}-${val.max}`;
+        } else if (question.type === "date_lease") {
+          formattedResponses[question.id] = `${val.moveInDate}, ${val.leaseLengthMonths} month lease`;
+        } else {
+          formattedResponses[question.id] = val;
+        }
+      });
+
+      const payload = {
+        user_id: user?.id || "07ad0f33-f5ec-49d7-bfbe-a38a25ba15a7", // Fallback for testing
+        responses: formattedResponses
+      };
+
+      await axios.post(`${API_BASE_URL}/onboarding/quiz`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (user) {
+        setUser({ ...user, onboardingAnswers: formattedResponses, onboarded: true, livelinessVerified: true });
+      }
+      navigate("/swipe");
+    } catch (err) {
+      console.error("Submission error:", err);
+      alert("Failed to save your profile. Please check your connection.");
+    } finally {
+      setIsSubmitting(false);
     }
-    navigate("/swipe");
   };
 
   const inputClass = "w-full px-4 py-3.5 rounded-2xl bg-muted/40 border border-transparent focus:border-primary/20 focus:bg-card outline-none transition-all text-[0.9rem] font-medium";
@@ -194,7 +220,6 @@ export function TenantOnboarding() {
                   <h2 className="text-2xl font-black tracking-tight">{q.question}</h2>
                 </div>
 
-                {/* Renderer for different question types */}
                 <div className="space-y-4">
                   {q.type === "text" && (
                       <div className="relative" ref={q.id.includes("locations") ? suggestionRef : null}>
@@ -239,11 +264,11 @@ export function TenantOnboarding() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Min Price</span>
-                          <input type="number" className={inputClass} value={(currentVal as any)?.min || ""} onChange={(e) => patchAnswer({ ...((currentVal as any) || {}), min: +e.target.value })} />
+                          <input type="number" className={inputClass} value={currentVal?.min || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), min: +e.target.value })} />
                         </div>
                         <div className="space-y-1">
                           <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Max Price</span>
-                          <input type="number" className={inputClass} value={(currentVal as any)?.max || ""} onChange={(e) => patchAnswer({ ...((currentVal as any) || {}), max: +e.target.value })} />
+                          <input type="number" className={inputClass} value={currentVal?.max || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), max: +e.target.value })} />
                         </div>
                       </div>
                   )}
@@ -257,8 +282,14 @@ export function TenantOnboarding() {
 
                   {q.type === "date_lease" && (
                       <div className="space-y-4">
-                        <input type="date" className={inputClass} value={(currentVal as any)?.moveInDate || ""} onChange={(e) => patchAnswer({ ...((currentVal as any) || {}), moveInDate: e.target.value })} />
-                        <input type="number" placeholder="Lease months" className={inputClass} value={(currentVal as any)?.leaseLengthMonths || ""} onChange={(e) => patchAnswer({ ...((currentVal as any) || {}), leaseLengthMonths: +e.target.value })} />
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Move-in Date</span>
+                          <input type="date" className={inputClass} value={currentVal?.moveInDate || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), moveInDate: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black uppercase text-muted-foreground ml-2">Lease Length (Months)</span>
+                          <input type="number" placeholder="e.g. 12" className={inputClass} value={currentVal?.leaseLengthMonths || ""} onChange={(e) => patchAnswer({ ...(currentVal || {}), leaseLengthMonths: +e.target.value })} />
+                        </div>
                       </div>
                   )}
 
@@ -284,8 +315,12 @@ export function TenantOnboarding() {
                   <h2 className="text-3xl font-black tracking-tight">You're verified!</h2>
                   <p className="text-muted-foreground">Your profile is live. Let's find your next home.</p>
                 </div>
-                <button onClick={finish} className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-primary/30 active:scale-95 transition-all">
-                  Start Swiping
+                <button
+                    onClick={finish}
+                    disabled={isSubmitting}
+                    className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : "Start Swiping"}
                 </button>
               </div>
           )}
