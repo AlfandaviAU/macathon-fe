@@ -23,8 +23,7 @@ export function Auth() {
       bio: "",
       type: typeParam || "tenant",
       onboarded: typeParam === "landlord",
-      personalityAnswers: [],
-      choreAnswers: [],
+      onboardingAnswers: {},
       livelinessVerified: typeParam === "landlord",
       lastSuperInterestTime: null,
     };
