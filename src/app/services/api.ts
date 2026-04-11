@@ -62,4 +62,16 @@ export const refreshSuperLike = async (propertyId: string) => {
   return api.post(`/properties/${propertyId}/super-like/refresh`);
 };
 
+export const approveTenant = async (propertyId: string, userId: string) => {
+  return api.post(`/properties/${propertyId}/approve/${userId}`);
+};
+
+export const removeTenant = async (propertyId: string, userId: string) => {
+  return api.post(`/properties/${propertyId}/remove-tenant/${userId}`);
+};
+
+export const updateProperty = async (propertyId: string, data: any) => {
+  return api.patch(`/properties/${propertyId}`, data);
+};
+
 export default api;
