@@ -41,8 +41,17 @@ export function Login() {
         navigate("/onboarding");
       }
     } catch (err) {
-      const axiosErr = err as AxiosError<{ detail?: string }>;
-      setError(axiosErr.response?.data?.detail || "Invalid email or password.");
+      const axiosErr = err as AxiosError<{ detail?: any }>;
+      const detail = axiosErr.response?.data?.detail;
+      if (typeof detail === "string") {
+        setError(detail);
+      } else if (Array.isArray(detail)) {
+        setError(detail[0]?.msg || "Invalid request format.");
+      } else if (detail && typeof detail === "object") {
+        setError(JSON.stringify(detail));
+      } else {
+        setError("Invalid email or password.");
+      }
     } finally {
       setSubmitting(false);
     }

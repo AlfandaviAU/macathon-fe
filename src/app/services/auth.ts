@@ -43,7 +43,13 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  const { data } = await api.post<AuthResponse>("/auth/login", payload);
+  const params = new URLSearchParams();
+  params.append("username", payload.email);
+  params.append("password", payload.password);
+
+  const { data } = await api.post<AuthResponse>("/auth/login", params, {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
   return data;
 }
 
