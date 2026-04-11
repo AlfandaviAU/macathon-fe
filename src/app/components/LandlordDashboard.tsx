@@ -86,6 +86,7 @@ export function LandlordDashboard() {
     bathrooms: apiData.bathrooms,
     garages: apiData.garages,
     weeklyPrice: apiData.price,
+    description: apiData.description,
     currentTenants: apiData.current_tenants || 0,
     maxTenants: apiData.max_tenants,
     expiryDate: apiData.expiry_date || "N/A",
@@ -94,6 +95,19 @@ export function LandlordDashboard() {
     interestedTenants: apiData.interested_user_ids || [],
     active: apiData.status === "available",
   });
+
+  const fetchLandlordID = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/users/me/`, {
+        headers: { 'Authorization': `Bearer ${getSavedToken()}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.id;
+      }
+    } catch (error) { console.error(error); } finally { setLoading(false); }
+  }
 
   const fetchProperties = async () => {
     setLoading(true);
@@ -154,6 +168,7 @@ export function LandlordDashboard() {
           finalImageUrls = uploadData.urls;
         }
       }
+      const landlord_id = await fetchLandlordID();
 
       const response = await fetch(`${API_URL}/properties/`, {
         method: "POST",
@@ -162,6 +177,7 @@ export function LandlordDashboard() {
           ...form,
           tenant_preferences: selectedPrefs,
           status: "available",
+          landlord_id,
           images: finalImageUrls.length > 0 ? finalImageUrls : ["https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"]
         })
       });
@@ -312,6 +328,11 @@ export function LandlordDashboard() {
                       <div className="flex items-baseline gap-1 mt-1">
                         <span className="text-xl font-black text-foreground">${p.weeklyPrice}</span>
                         <span className="text-[10px] font-bold text-muted-foreground">/ week</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 mt-1">
+                        <span className="text-xs text-foreground line-clamp-3">
+                          {p.description}
+                        </span>
                       </div>
                     </div>
                   </div>
