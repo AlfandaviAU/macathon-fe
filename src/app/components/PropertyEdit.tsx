@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router";
 import { useApp } from "../store";
 import {
   ArrowLeft, X, Loader2, ImagePlus, Sparkles,
-  Calendar, MapPin, Save, Trash2, AlertCircle,
+  MapPin, Save, Trash2, AlertCircle,
   Users, CheckCircle2, XCircle, Star, Zap, Phone
 } from "lucide-react";
 import api, { approveTenant, removeTenant, API_URL } from "../services/api";
@@ -338,10 +338,9 @@ export function PropertyEdit() {
             </div>
           </div>
 
-          {/* Expiry Date Calendar */}
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block flex items-center gap-1">
-              <Calendar size={10} /> Listing Expiry Date
+            <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">
+              Listing expiry date
             </label>
             <input
                 type="date"

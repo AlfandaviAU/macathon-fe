@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, ChangeEvent } from "react";
 import { useApp, Property } from "../store";
 import { useNavigate } from "react-router";
-import { Plus, MapPin, X, ArrowRight, Loader2, ImagePlus, Sparkles, Calendar, Users, Star } from "lucide-react";
+import { Plus, MapPin, X, ArrowRight, Loader2, ImagePlus, Sparkles, Users, Star } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import axios from "axios";
 import api, { API_URL } from "../services/api";
@@ -278,10 +278,7 @@ export function LandlordDashboard() {
                 {/* Expiry */}
                 <div>
                   <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Listing expiry date</label>
-                  <div className="relative">
-                    <input type="date" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none font-medium outline-none" value={form.expiry_date} onChange={e => setForm({...form, expiry_date: e.target.value})} />
-                    <Calendar className="absolute right-4 top-3 text-muted-foreground pointer-events-none" size={18} />
-                  </div>
+                  <input type="date" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none font-medium outline-none" value={form.expiry_date} onChange={e => setForm({...form, expiry_date: e.target.value})} />
                 </div>
 
                 {/* Description & AI */}
