@@ -40,11 +40,7 @@ export function SwipeInterface() {
   const [error, setError] = useState<string | null>(null);
   const [swiping, setSwiping] = useState(false);
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<{ maxPrice: number | null; radius: number | null }>({ maxPrice: null, radius: null });
-  const [pendingFilters, setPendingFilters] = useState({ maxPrice: 2000, radius: 20 });
   const [imgIdx, setImgIdx] = useState(0);
-  const hasActiveFilters = filters.maxPrice !== null || filters.radius !== null;
 
   useEffect(() => {
     if (!user || !user.onboarded) navigate("/onboarding");
@@ -55,10 +51,7 @@ export function SwipeInterface() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, number> = {};
-      if (filters.maxPrice !== null) params.max_price = filters.maxPrice;
-      if (filters.radius !== null) params.max_range_km = filters.radius;
-      const { data: rawMatches } = await api.get<MatchedProperty[]>(`/matching/properties/${user.id}`, { params });
+      const { data: rawMatches } = await api.get<MatchedProperty[]>(`/matching/properties/${user.id}`);
       let data = rawMatches;
       try {
         const profile = await getMe();
@@ -78,7 +71,7 @@ export function SwipeInterface() {
     } finally {
       setLoading(false);
     }
-  }, [user, filters]);
+  }, [user]);
 
   useEffect(() => {
     if (user?.onboarded) fetchProperties();
@@ -123,40 +116,13 @@ export function SwipeInterface() {
   };
 
   return (
-    <div className="px-4 pt-4 max-w-lg mx-auto pb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-black tracking-tight">Discover</h2>
-        <button
-          onClick={() => { if (!showFilters && hasActiveFilters) setPendingFilters({ maxPrice: filters.maxPrice ?? 2000, radius: filters.radius ?? 20 }); setShowFilters(!showFilters); }}
-          className={`p-2 rounded-lg border relative transition-all ${showFilters ? "bg-primary text-primary-foreground border-primary" : hasActiveFilters ? "border-primary text-primary" : "border-border hover:bg-muted"}`}
-        >
-          <SlidersHorizontal className="w-5 h-5" />
-          {hasActiveFilters && !showFilters && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-primary" />
-          )}
-        </button>
-      </div>
-
-      {showFilters && (
-        <div className="bg-card rounded-xl border border-border p-4 mb-4 space-y-4 shadow-sm">
-          <div>
-            <label className="text-[0.8rem] font-bold uppercase tracking-widest text-muted-foreground block mb-2">Max price (per week): ${pendingFilters.maxPrice}</label>
-            <input type="range" min={50} max={2000} step={50} value={pendingFilters.maxPrice}
-              onChange={(e) => setPendingFilters({ ...pendingFilters, maxPrice: +e.target.value })} className="w-full accent-primary" />
-          </div>
-          <div>
-            <label className="text-[0.8rem] font-bold uppercase tracking-widest text-muted-foreground block mb-2">Max distance: {pendingFilters.radius}km</label>
-            <input type="range" min={1} max={50} value={pendingFilters.radius}
-              onChange={(e) => setPendingFilters({ ...pendingFilters, radius: +e.target.value })} className="w-full accent-primary" />
-          </div>
-          <div className="flex gap-2">
-            {hasActiveFilters && (
-              <button onClick={clearFilters} className="flex-1 bg-secondary text-secondary-foreground py-2.5 rounded-xl text-[0.85rem] font-black uppercase tracking-wider">Clear</button>
-            )}
-            <button onClick={applyFilters} className="flex-1 bg-primary text-primary-foreground py-2.5 rounded-xl text-[0.85rem] font-black uppercase tracking-wider">Apply filters</button>
-          </div>
+    <div className="px-4 pt-6 max-w-lg mx-auto pb-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-3xl font-black tracking-tighter">Discover</h2>
+          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest mt-1">Personalized Matches</p>
         </div>
-      )}
+      </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -235,7 +201,7 @@ export function SwipeInterface() {
             <MapPin className="w-10 h-10 text-muted-foreground" />
           </div>
           <h3 className="text-xl font-black mb-2">No more properties</h3>
-          <p className="text-muted-foreground text-[0.85rem] mb-6 font-medium">Check back later or adjust your filters.</p>
+          <p className="text-muted-foreground text-[0.85rem] mb-6 font-medium">Check back later for new listings in your area.</p>
           <button onClick={fetchProperties} className="bg-secondary text-secondary-foreground px-8 py-3 rounded-2xl text-[0.85rem] font-black uppercase tracking-widest hover:bg-secondary/80 transition-all">Refresh</button>
         </div>
       )}
