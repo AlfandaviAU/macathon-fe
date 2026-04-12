@@ -6,11 +6,9 @@ import {
   Calendar, MapPin, Save, Trash2, AlertCircle,
   Users, CheckCircle2, XCircle, Star, Zap, Phone
 } from "lucide-react";
-import api, { approveTenant, removeTenant } from "../services/api";
+import api, { approveTenant, removeTenant, API_URL } from "../services/api";
 import { getSavedToken, getUserById } from "../services/auth";
 import { toast } from "sonner";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const PREFERENCE_OPTIONS = [
   "Tidy", "Non-smoker", "Quiet after 10pm", "Pet-friendly",

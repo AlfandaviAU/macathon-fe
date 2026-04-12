@@ -4,12 +4,11 @@ import { useNavigate } from "react-router";
 import { Plus, MapPin, X, ArrowRight, Loader2, ImagePlus, Sparkles, Calendar, Users, Star } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import axios from "axios";
-import api from "../services/api";
+import api, { API_URL } from "../services/api";
 import { getSavedToken } from "../services/auth";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
-const API_URL = import.meta.env.VITE_API_URL;
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const PREFERENCE_OPTIONS = [

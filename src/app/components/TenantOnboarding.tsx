@@ -3,14 +3,14 @@ import { useNavigate } from "react-router";
 import { useApp } from "../store";
 import { CheckCircle2, MapPin, Loader2, ChevronLeft } from "lucide-react";
 import axios from "axios";
+import api, { API_URL as API_BASE_URL } from "../services/api";
 import { getSavedToken } from "../services/auth";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import { Slider } from "./ui/slider";
 
 // --- Constants & Types ---
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const API_BASE_URL = import.meta.env.VITE_API_URL || "";
-
 type QuestionBase = { id: string; category: string; question: string };
 type TextQ = QuestionBase & { type: "text" };
 type NumberQ = QuestionBase & { type: "number" };
