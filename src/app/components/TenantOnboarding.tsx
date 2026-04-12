@@ -4,6 +4,8 @@ import { useApp } from "../store";
 import { CheckCircle2, MapPin, Loader2, ChevronLeft } from "lucide-react";
 import axios from "axios";
 import { getSavedToken } from "../services/auth";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 // --- Constants & Types ---
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -139,8 +141,7 @@ export function TenantOnboarding() {
   };
 
   const finish = async () => {
-    setIsSubmitting(true);
-    try {
+    const onboardingPromise = (async () => {
       const formattedResponses: Record<string, any> = {};
 
       TENANT_ONBOARDING_QUESTIONS.forEach(question => {
@@ -159,20 +160,30 @@ export function TenantOnboarding() {
         responses: formattedResponses
       };
 
-      await axios.post(`${API_BASE_URL}/onboarding/quiz`, payload, {
+      const response = await axios.post(`${API_BASE_URL}/onboarding/quiz`, payload, {
         headers: { Authorization: `Bearer ${getSavedToken()}` }
       });
 
       if (user) {
         setUser({ ...user, onboardingAnswers: formattedResponses, onboarded: true });
       }
+
+      // Success
+      confetti({
+        particleCount: 150,
+        spread: 100,
+        origin: { y: 0.6 }
+      });
       navigate("/swipe");
-    } catch (err) {
-      console.error("Submission error:", err);
-      alert("Failed to save your profile. Please check your connection.");
-    } finally {
-      setIsSubmitting(false);
-    }
+      return response.data;
+    })();
+
+    setIsSubmitting(true);
+    toast.promise(onboardingPromise, {
+      loading: 'Saving your profile...',
+      success: 'Profile created! Welcome to the tribe.',
+      error: 'Failed to save your profile. Please check your connection.'
+    }).finally(() => setIsSubmitting(false));
   };
 
   const inputClass = "w-full px-4 py-3.5 rounded-2xl bg-muted/40 border border-transparent focus:border-primary/20 focus:bg-card outline-none transition-all text-[0.9rem] font-medium";

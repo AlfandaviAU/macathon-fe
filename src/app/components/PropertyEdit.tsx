@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import api, { approveTenant, removeTenant } from "../services/api";
 import { getSavedToken, getUserById } from "../services/auth";
+import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -183,8 +184,7 @@ export function PropertyEdit() {
   };
 
   const handleUpdate = async () => {
-    setIsSaving(true);
-    try {
+    const updatePromise = (async () => {
       let finalImageUrls = [...previews.filter(p => !p.startsWith('blob:'))];
 
       if (selectedFiles.length > 0) {
@@ -217,18 +217,21 @@ export function PropertyEdit() {
         })
       });
 
-      if (res.ok) {
-        await refreshProperties();
-        navigate(`/landlord`);
-      } else {
-        const errData = await res.json();
-        console.error("Update failed server side:", errData);
+      if (!res.ok) {
+        throw new Error("Failed to update property listing.");
       }
-    } catch (error) {
-      console.error("Update failed", error);
-    } finally {
-      setIsSaving(false);
-    }
+
+      await refreshProperties();
+      navigate(`/landlord`);
+      return await res.json();
+    })();
+
+    setIsSaving(true);
+    toast.promise(updatePromise, {
+      loading: 'Saving changes...',
+      success: 'Property updated successfully!',
+      error: (err) => err.message || 'An error occurred while updating the property.'
+    }).finally(() => setIsSaving(false));
   };
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {

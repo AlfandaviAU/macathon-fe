@@ -6,6 +6,8 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import axios from "axios";
 import api from "../services/api";
 import { getSavedToken } from "../services/auth";
+import { toast } from "sonner";
+import confetti from "canvas-confetti";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -146,7 +148,9 @@ export function LandlordDashboard() {
   };
 
   const handleCreate = async () => {
-    try {
+    if (!form.address) return;
+
+    const createPromise = (async () => {
       let finalImageUrls = [...previews];
       if (selectedFiles.length > 0) {
         const formData = new FormData();
@@ -173,15 +177,32 @@ export function LandlordDashboard() {
           images: finalImageUrls.length > 0 ? finalImageUrls : ["https://images.unsplash.com/photo-1559329146-807aff9ff1fb?q=80&w=1080"]
         })
       });
-      if (response.ok) {
-        setShowForm(false);
-        setForm({ ...BLANK_FORM });
-        setPreviews([]);
-        setSelectedPrefs([]);
-        setAddressInput("");
-        fetchProperties();
+
+      if (!response.ok) {
+        throw new Error("Failed to create property listing.");
       }
-    } catch (error) { console.error(error); }
+
+      // Success
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#ff0000', '#ffffff', '#000000']
+      });
+      setShowForm(false);
+      setForm({ ...BLANK_FORM });
+      setPreviews([]);
+      setSelectedPrefs([]);
+      setAddressInput("");
+      fetchProperties();
+      return await response.json();
+    })();
+
+    toast.promise(createPromise, {
+      loading: 'Creating your listing...',
+      success: 'Property listing created successfully!',
+      error: (err) => err.message || 'An error occurred while creating the listing.'
+    });
   };
 
   return (
