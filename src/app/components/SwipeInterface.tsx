@@ -341,8 +341,8 @@ const FrontCard = forwardRef<FrontCardHandle, {
         <motion.div className="absolute top-12 left-8 border-4 border-red-500 rounded-2xl px-6 py-2 -rotate-12 z-20 bg-red-500/10 backdrop-blur-md" style={{ opacity: leftOpacity }}>
           <span className="text-red-500 text-[2rem] font-black tracking-tighter">NOPE</span>
         </motion.div>
-        <motion.div className="absolute top-12 right-8 border-4 border-primary rounded-2xl px-6 py-2 rotate-12 z-20 bg-primary/10 backdrop-blur-md" style={{ opacity: rightOpacity }}>
-          <span className="text-primary text-[2rem] font-black tracking-tighter">LIKE</span>
+        <motion.div className="absolute top-12 right-8 border-4 border-green-500 rounded-2xl px-6 py-2 rotate-12 z-20 bg-green-500/10 backdrop-blur-md" style={{ opacity: rightOpacity }}>
+          <span className="text-green-500 text-[2rem] font-black tracking-tighter">LIKE</span>
         </motion.div>
 
         {/* Match score badge */}
