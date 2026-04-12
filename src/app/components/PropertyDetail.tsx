@@ -261,6 +261,15 @@ export function PropertyDetail() {
     }
   }, [displayProperty?.address, user?.onboardingAnswers, GOOGLE_KEY]);
 
+  if (loadingProperty && !displayProperty) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground animate-pulse">Loading Property Details...</p>
+      </div>
+    );
+  }
+
   if (!displayProperty) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-background">
