@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useApp } from "../store";
-import { Home, Eye, EyeOff, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowLeft, ArrowRight } from "lucide-react";
+import { AppLogoMark } from "./AppLogoMark";
 import { login, saveAuth } from "../services/auth";
 import { AxiosError } from "axios";
 import { Button } from "./ui/button";
@@ -76,8 +77,8 @@ export function Login() {
         </button>
 
         <div className="flex items-center gap-4 mb-10">
-          <div className="w-12 h-12 rounded-2xl bg-[#e8553d] flex items-center justify-center shadow-lg shadow-[#e8553d]/20">
-            <Home className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl bg-white dark:bg-muted flex items-center justify-center shadow-lg shadow-black/5 ring-1 ring-black/5 dark:ring-border overflow-hidden shrink-0 p-1">
+            <AppLogoMark className="w-full h-full" />
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tighter leading-none text-foreground">Welcome Back</h1>
