@@ -13,6 +13,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { cn } from "./ui/utils";
 import { ThemeToggle } from "./Layout";
+import { AppLogoMark } from "./AppLogoMark";
 import { useTheme } from "next-themes";
 import { useIsMobile } from "./ui/use-mobile";
 
@@ -141,8 +142,8 @@ export function Landing() {
             )}
           >
             <div className="flex items-center gap-2 group cursor-pointer" onClick={() => navigate("/")}>
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg md:rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform">
-                <Home className="w-4 h-4 md:w-5 md:h-5 text-white" />
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform bg-white dark:bg-muted shadow-md ring-1 ring-black/5 dark:ring-border overflow-hidden shrink-0 p-[3px] md:p-1">
+                <AppLogoMark className="w-full h-full" />
               </div>
               <span className="text-xl md:text-2xl font-black tracking-tight text-foreground">Dwllr<span className="text-primary">.ai</span></span>
             </div>

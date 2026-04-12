@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="58 38 284 218" fill="none" preserveAspectRatio="xMidYMid meet" overflow="visible" aria-hidden="true">
+  <defs>
+    <radialGradient id="dm-halo" cx="50%" cy="44%" r="58%" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#e8553d" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#e8553d" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#e8553d" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="dm-orange" x1="72" y1="56" x2="328" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ff8a6b"/>
+      <stop offset="45%" stop-color="#e8553d"/>
+      <stop offset="100%" stop-color="#9a2f1f"/>
+    </linearGradient>
+
+    <linearGradient id="dm-wall-soft" x1="96" y1="210" x2="132" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f4ebe8"/>
+      <stop offset="100%" stop-color="#c4aaa3"/>
+    </linearGradient>
+
+    <linearGradient id="dm-wall-deep" x1="268" y1="72" x2="292" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#c9b3ad"/>
+      <stop offset="100%" stop-color="#7d5f58"/>
+    </linearGradient>
+
+    <linearGradient id="dm-sheen" x1="40" y1="40" x2="360" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="dm-soft" x="-28%" y="-28%" width="156%" height="156%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#3d120c" flood-opacity="0.21"/>
+    </filter>
+
+    <mask id="dm-m-right">
+      <rect x="0" y="0" width="400" height="400" fill="white"/>
+      <path d="M 282 60 L 282 220" stroke="black" stroke-width="42" stroke-linecap="round"/>
+    </mask>
+    <mask id="dm-m-left">
+      <rect x="0" y="0" width="400" height="400" fill="white"/>
+      <path d="M 118 160 L 118 220" stroke="black" stroke-width="42" stroke-linecap="round"/>
+    </mask>
+    <mask id="dm-m-door">
+      <rect x="0" y="0" width="400" height="400" fill="white"/>
+      <path d="M 200 180 L 200 220" stroke="black" stroke-width="42" stroke-linecap="round"/>
+    </mask>
+    <mask id="dm-m-roof">
+      <rect x="0" y="0" width="400" height="400" fill="white"/>
+      <path d="M 88 170 L 200 70 L 312 170" stroke="black" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+
+  <ellipse cx="200" cy="116" rx="132" ry="104" fill="url(#dm-halo)"/>
+
+  <g filter="url(#dm-soft)">
+    <path d="M 282 60 L 282 220" stroke="url(#dm-sheen)" stroke-width="46" stroke-linecap="round" mask="url(#dm-m-right)"/>
+    <path d="M 282 60 L 282 220" stroke="url(#dm-wall-deep)" stroke-width="40" stroke-linecap="round"/>
+
+    <path d="M 118 160 L 118 220" stroke="url(#dm-sheen)" stroke-width="46" stroke-linecap="round" mask="url(#dm-m-left)"/>
+    <path d="M 118 160 L 118 220" stroke="url(#dm-wall-soft)" stroke-width="40" stroke-linecap="round"/>
+
+    <path d="M 200 180 L 200 220" stroke="url(#dm-sheen)" stroke-width="46" stroke-linecap="round" mask="url(#dm-m-door)"/>
+    <path d="M 200 180 L 200 220" stroke="url(#dm-orange)" stroke-width="40" stroke-linecap="round" opacity="0.72"/>
+
+    <path d="M 88 170 L 200 70 L 312 170" stroke="url(#dm-sheen)" stroke-width="46" stroke-linecap="round" stroke-linejoin="round" mask="url(#dm-m-roof)"/>
+    <path d="M 88 170 L 200 70 L 312 170" stroke="url(#dm-orange)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

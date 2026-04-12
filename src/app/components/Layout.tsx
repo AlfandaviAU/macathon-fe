@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation, Navigate } from "react-router";
 import { useApp, AppProvider } from "../store";
-import { Home, Search, Heart, User, Building2, LogOut, Loader2 } from "lucide-react";
+import { Search, Heart, User, Building2, LogOut, Loader2 } from "lucide-react";
+import { AppLogoMark } from "./AppLogoMark";
 import { useTheme } from "next-themes";
 import { Button } from "./ui/button";
 import { motion } from "framer-motion";
@@ -55,8 +56,8 @@ export function ProtectedLayout() {
 
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border px-4 py-2 flex items-center justify-between shadow-sm relative">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Home className="w-4 h-4 text-primary-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-white dark:bg-muted flex items-center justify-center shadow-sm ring-1 ring-black/5 dark:ring-border overflow-hidden shrink-0 p-[3px]">
+            <AppLogoMark className="w-full h-full" />
           </div>
           <span className="text-[1.1rem] font-bold tracking-tight">Dwllr.ai</span>
         </div>
