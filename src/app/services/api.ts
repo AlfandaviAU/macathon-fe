@@ -1,11 +1,19 @@
 import axios from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+let API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+// Ensure URL is absolute by adding protocol if missing
+// Using // allows it to match the current page's protocol (http/https)
+if (API_URL && !API_URL.includes("://") && !API_URL.startsWith("//")) {
+  API_URL = `//${API_URL}`;
+}
 
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
+
+export { API_URL };
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");

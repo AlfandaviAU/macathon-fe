@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import { getMe, getSavedToken, clearAuth, type UserProfile } from "./services/auth";
+import { API_URL } from "./services/api";
 
 export type UserType = "landlord" | "tenant" | null;
 
@@ -123,7 +124,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshProperties = useCallback(async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const res = await fetch(`${API_URL}/properties`, {
         headers: { 'Authorization': `Bearer ${getSavedToken()}` }
       });
