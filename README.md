@@ -8,4 +8,7 @@
   Run `npm i` to install the dependencies.
 
   Run `npm run dev` to start the development server.
-  
+
+
+  ## BACKEND REPO
+  https://github.com/AlfandaviAU/macathon-be
