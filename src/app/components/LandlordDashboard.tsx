@@ -216,9 +216,13 @@ export function LandlordDashboard() {
                   <input type="file" ref={fileInputRef} hidden multiple onChange={handleImageChange} accept="image/*" />
                 </div>
 
+                {/* Address */}
                 <div className="relative" ref={suggestionRef}>
                   <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Property address</label>
-                  <input className="w-full px-4 py-3.5 rounded-2xl bg-muted/40 border-none outline-none text-sm font-medium" value={addressInput} onChange={(e) => { setAddressInput(e.target.value); setShowSuggestions(true); }} placeholder="123 Main St, Sydney NSW" />
+                  <div className="relative">
+                    <input className="w-full px-4 py-3.5 rounded-2xl bg-muted/40 border-none outline-none text-sm font-medium" value={addressInput} onChange={(e) => { setAddressInput(e.target.value); setShowSuggestions(true); }} placeholder="123 Main St, Sydney NSW" />
+                    {isSearching && <Loader2 className="absolute right-4 top-3.5 w-4 h-4 animate-spin text-primary/50" />}
+                  </div>
                   {showSuggestions && suggestions.length > 0 && (
                       <div className="absolute z-50 w-full mt-2 bg-white border border-border rounded-2xl shadow-2xl overflow-hidden">
                         {suggestions.map((s) => (
@@ -230,7 +234,7 @@ export function LandlordDashboard() {
                   )}
                 </div>
 
-                {/* Form Specs section unchanged */}
+                {/* Specs */}
                 <div className="grid grid-cols-3 gap-3">
                   {[{l: 'Beds', k: 'bedrooms'}, {l: 'Baths', k: 'bathrooms'}, {l: 'Garages', k: 'garages'}].map(i => (
                       <div key={i.k}>
@@ -239,8 +243,57 @@ export function LandlordDashboard() {
                       </div>
                   ))}
                 </div>
-                {/* ... other form inputs remain same ... */}
-                <button onClick={handleCreate} disabled={!form.address} className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-red-100 transition-all duration-300">
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Weekly price ($)</label>
+                    <input type="number" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none font-bold" value={form.price} onChange={e => setForm({...form, price: +e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Max tenants</label>
+                    <input type="number" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none text-center font-bold" value={form.max_tenants} onChange={e => setForm({...form, max_tenants: +e.target.value})} />
+                  </div>
+                </div>
+
+                {/* Expiry */}
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Listing expiry date</label>
+                  <div className="relative">
+                    <input type="date" className="w-full px-4 py-3 rounded-xl bg-muted/40 border-none font-medium outline-none" value={form.expiry_date} onChange={e => setForm({...form, expiry_date: e.target.value})} />
+                    <Calendar className="absolute right-4 top-3 text-muted-foreground pointer-events-none" size={18} />
+                  </div>
+                </div>
+
+                {/* Description & AI */}
+                <div className="relative space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 mb-1 block">Description</label>
+                  <textarea className="w-full px-4 py-3 rounded-2xl bg-muted/40 border-none text-sm min-h-[100px] outline-none" value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Describe the property..." />
+                  <button
+                      onClick={handleAIOptimize}
+                      disabled={isOptimizing}
+                      className="absolute bottom-3 mb-1 right-3 flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-full text-[10px] font-black hover:bg-primary/90 transition-all"
+                  >
+                    {isOptimizing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    AI Listing Optimizer
+                  </button>
+                </div>
+
+                {/* Prefs */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 block">Tenant preferences</label>
+                  <div className="flex flex-wrap gap-2">
+                    {PREFERENCE_OPTIONS.map(p => (
+                        <button key={p} onClick={() => setSelectedPrefs(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])} className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${selectedPrefs.includes(p) ? "bg-primary/10 border-primary text-primary" : "bg-white border-border text-muted-foreground"}`}>
+                          {p}
+                        </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                    onClick={handleCreate}
+                    disabled={!form.address}
+                    className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg shadow-xl shadow-red-100 transition-all duration-300 ease-out active:scale-95 disabled:opacity-50 hover:bg-primary/90 hover:-translate-y-1 hover:shadow-2xl hover:shadow-red-200"
+                >
                   Create listing
                 </button>
               </div>
