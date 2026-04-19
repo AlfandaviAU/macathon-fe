@@ -46,12 +46,6 @@ The system is built as a modern, scalable web application using a modular servic
 
 $$S(u_i, u_j) = \frac{\mathbf{v}_i \cdot \mathbf{v}_j}{\|\mathbf{v}_i\| \|\mathbf{v}_j\|}$$
 * **Infrastructure:** Background workers handle matching cycles and generate high-intent interest reports for landlords.
-
-## Challenges we ran into
-The primary challenge was translating subjective human behavior into objective data. We had to iterate on our embedding models to ensure that "personality matching" wasn't just keyword matching, but a nuanced understanding of lifestyle compatibility. Additionally, balancing the marketplace supply (listings) with demand (pre-matched groups) required precise filtering logic to prevent "choice paralysis" for tenants.
-
-## Accomplishments that we're proud of
-We are proud of our **Dynamic Matching Engine**, which successfully moves beyond basic filters to evaluate group harmony. We successfully implemented a seamless transition from a digital "swipe" to a real-world communication channel (Group SMS), bridging the gap between discovery and action.
   
 ## Running the code locally
 
